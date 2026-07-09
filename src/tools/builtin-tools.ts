@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 
@@ -94,7 +95,30 @@ export function createBuiltinTools(options: BuiltinToolsOptions): ToolContract[]
 
         return matches.join("\n");
       }
-    })
+    }),
+    {
+      name: "run_command",
+      description: "Run a command in the workspace without a shell.",
+      source: "builtin",
+      inputSchema: objectSchema({
+        command: { type: "string", description: "Executable path or command name" },
+        args: { type: "array", description: "Command arguments" },
+        cwd: { type: "string", description: "Optional workspace-relative working directory" }
+      }, ["command"]),
+      readOnly: false,
+      destructive: true,
+      permission: "ask",
+      concurrency: "exclusive",
+      outputLimitBytes: 32_000,
+      timeoutMs: 30_000,
+      execute: async (input) => {
+        const command = readStringField(input, "command");
+        const args = readOptionalStringArrayField(input, "args");
+        const cwdInput = readOptionalStringField(input, "cwd") ?? ".";
+        const cwd = resolveWorkspacePath(workspaceRoot, cwdInput, { allowRoot: true });
+        return runCommand(command, args, cwd, 30_000);
+      }
+    }
   ];
 }
 
@@ -152,10 +176,18 @@ async function listWorkspaceFiles(workspaceRoot: string): Promise<string[]> {
   return results.sort();
 }
 
-function resolveWorkspacePath(workspaceRoot: string, path: string): string {
+function resolveWorkspacePath(
+  workspaceRoot: string,
+  path: string,
+  options: { allowRoot?: boolean } = {}
+): string {
   const absolutePath = resolve(workspaceRoot, path);
   const relativePath = relative(workspaceRoot, absolutePath);
-  if (relativePath.startsWith("..") || relativePath === "" || relativePath.startsWith("/")) {
+  if (
+    relativePath.startsWith("..") ||
+    (!options.allowRoot && relativePath === "") ||
+    relativePath.startsWith("/")
+  ) {
     throw new Error(`Path escapes workspace: ${path}`);
   }
   return absolutePath;
@@ -180,6 +212,90 @@ function readStringField(
   }
 
   return value;
+}
+
+function readOptionalStringField(input: unknown, field: string): string | undefined {
+  if (!input || typeof input !== "object") {
+    throw new Error(`Expected object input with string field "${field}"`);
+  }
+
+  const value = (input as Record<string, unknown>)[field];
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`Expected optional non-empty string field "${field}"`);
+  }
+
+  return value;
+}
+
+function readOptionalStringArrayField(input: unknown, field: string): string[] {
+  if (!input || typeof input !== "object") {
+    throw new Error(`Expected object input with optional string array field "${field}"`);
+  }
+
+  const value = (input as Record<string, unknown>)[field];
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    throw new Error(`Expected optional string array field "${field}"`);
+  }
+
+  return value;
+}
+
+async function runCommand(
+  command: string,
+  args: string[],
+  cwd: string,
+  timeoutMs: number
+): Promise<string> {
+  return new Promise((resolvePromise, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      shell: false,
+      windowsHide: true
+    });
+
+    let stdout = "";
+    let stderr = "";
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGTERM");
+    }, timeoutMs);
+
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.on("close", (code, signal) => {
+      clearTimeout(timer);
+      if (timedOut) {
+        reject(new Error(`Command timed out after ${timeoutMs}ms`));
+        return;
+      }
+
+      resolvePromise([
+        `exitCode: ${code ?? "null"}`,
+        `signal: ${signal ?? "null"}`,
+        "stdout:",
+        stdout.trimEnd(),
+        "stderr:",
+        stderr.trimEnd()
+      ].join("\n"));
+    });
+  });
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {

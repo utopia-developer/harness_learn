@@ -74,6 +74,14 @@ test("builtin tools expose runtime metadata for safe scheduling", async () => {
         destructive: false,
         permission: "auto",
         concurrency: "safe"
+      },
+      {
+        name: "run_command",
+        source: "builtin",
+        readOnly: false,
+        destructive: true,
+        permission: "ask",
+        concurrency: "exclusive"
       }
     ]
   );
@@ -176,4 +184,40 @@ test("write_file allows creating a new file after read_file confirmed it is miss
   );
 
   assert.equal(await readFile(join(workspaceRoot, "new.txt"), "utf8"), "new\n");
+});
+
+test("run_command executes a command inside the workspace and reports output", async () => {
+  const workspaceRoot = await createWorkspace();
+  const tools = createBuiltinTools({ workspaceRoot });
+  const runCommand = tools.find((tool) => tool.name === "run_command");
+  assert.ok(runCommand);
+
+  const output = await runCommand.execute(
+    {
+      command: process.execPath,
+      args: ["-e", "console.log(process.cwd()); console.error('warn');"]
+    },
+    { taskId: "task-1", runId: "run-1", messages: [] }
+  );
+
+  assert.match(output, /exitCode: 0/);
+  assert.match(output, new RegExp(`stdout:[\\s\\S]*${workspaceRoot.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  assert.match(output, /stderr:[\s\S]*warn/);
+});
+
+test("run_command rejects workspace escape cwd", async () => {
+  const workspaceRoot = await createWorkspace();
+  const tools = createBuiltinTools({ workspaceRoot });
+  const runCommand = tools.find((tool) => tool.name === "run_command");
+  assert.ok(runCommand);
+
+  await assert.rejects(
+    async () => {
+      await runCommand.execute(
+        { command: process.execPath, args: ["-e", ""], cwd: ".." },
+        { taskId: "task-1", runId: "run-1", messages: [] }
+      );
+    },
+    /escapes workspace/i
+  );
 });
