@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { runAgent } from "../../src/runtime/agent-loop.js";
 import { ScriptedModelClient } from "../../src/model/scripted-model.js";
+import { createMemoryApprovalStore } from "../../src/permissions/approval-store.js";
 import { createToolRegistry } from "../../src/tools/registry.js";
 import type { ToolContract } from "../../src/tools/types.js";
 
@@ -193,4 +194,126 @@ test("runAgent treats disabled tools as unavailable at execution time", async ()
   const finalEvent = events.at(-1);
   assert.equal(finalEvent?.type, "agent.failed");
   assert.match(finalEvent?.type === "agent.failed" ? finalEvent.error : "", /unknown tool/i);
+});
+
+test("runAgent requests approval for ask tools and records approved decisions", async () => {
+  const model = new ScriptedModelClient("scripted", [
+    [{ type: "tool_call", callId: "call-1", name: "write_file", input: { path: "a.txt" } }],
+    [{ type: "message_completed", text: "done" }]
+  ]);
+  const approvalStore = createMemoryApprovalStore();
+  let executed = false;
+
+  const events = await collect(
+    runAgent({
+      taskId: "task-1",
+      runId: "run-1",
+      model,
+      tools: createToolRegistry({
+        tools: [
+          {
+            name: "write_file",
+            description: "Write file",
+            source: "builtin",
+            inputSchema: { type: "object" },
+            readOnly: false,
+            destructive: true,
+            permission: "ask",
+            concurrency: "exclusive",
+            outputLimitBytes: 1024,
+            timeoutMs: 1000,
+            execute: async () => {
+              executed = true;
+              return "wrote";
+            }
+          }
+        ]
+      }),
+      permissionMode: "default",
+      approvalStore,
+      approvalHandler: async (request) => {
+        assert.equal(request.callId, "call-1");
+        assert.equal(request.tool, "write_file");
+        assert.match(request.reason, /requires approval/i);
+        return { approved: true, reason: "approved in test" };
+      },
+      userMessage: "Use write_file",
+      maxIterations: 3,
+      now: () => new Date("2026-07-09T00:00:00.000Z")
+    })
+  );
+
+  assert.equal(executed, true);
+  assert.deepEqual(
+    events.map((event) => event.type),
+    [
+      "agent.started",
+      "llm.started",
+      "tool.requested",
+      "permission.requested",
+      "permission.resolved",
+      "tool.completed",
+      "llm.started",
+      "agent.completed"
+    ]
+  );
+  assert.deepEqual(approvalStore.list(), [
+    {
+      taskId: "task-1",
+      runId: "run-1",
+      callId: "call-1",
+      tool: "write_file",
+      decision: "allow",
+      reason: "approved in test"
+    }
+  ]);
+});
+
+test("runAgent denies non-read-only tools in read_only mode before execution", async () => {
+  const model = new ScriptedModelClient("scripted", [
+    [{ type: "tool_call", callId: "call-1", name: "write_file", input: { path: "a.txt" } }]
+  ]);
+  let executed = false;
+
+  const events = await collect(
+    runAgent({
+      taskId: "task-1",
+      runId: "run-1",
+      model,
+      tools: createToolRegistry({
+        tools: [
+          {
+            name: "write_file",
+            description: "Write file",
+            source: "builtin",
+            inputSchema: { type: "object" },
+            readOnly: false,
+            destructive: true,
+            permission: "ask",
+            concurrency: "exclusive",
+            outputLimitBytes: 1024,
+            timeoutMs: 1000,
+            execute: async () => {
+              executed = true;
+              return "should not run";
+            }
+          }
+        ]
+      }),
+      permissionMode: "read_only",
+      userMessage: "Use write_file",
+      maxIterations: 3,
+      now: () => new Date("2026-07-09T00:00:00.000Z")
+    })
+  );
+
+  assert.equal(executed, false);
+  const permissionResolved = events.find((event) => event.type === "permission.resolved");
+  assert.equal(
+    permissionResolved?.type === "permission.resolved" ? permissionResolved.decision : "",
+    "deny"
+  );
+  const finalEvent = events.at(-1);
+  assert.equal(finalEvent?.type, "agent.failed");
+  assert.match(finalEvent?.type === "agent.failed" ? finalEvent.error : "", /read-only mode/i);
 });

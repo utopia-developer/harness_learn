@@ -1,3 +1,5 @@
+import type { PermissionDecisionType, PermissionMode } from "../permissions/types.js";
+
 export type RunStatus = "running" | "completed" | "failed" | "cancelled";
 
 export type EventBase = {
@@ -34,6 +36,24 @@ export type ToolCompletedEvent = EventBase & {
   output: string;
 };
 
+export type PermissionRequestedEvent = EventBase & {
+  type: "permission.requested";
+  callId: string;
+  tool: string;
+  input: unknown;
+  mode: PermissionMode;
+  reason: string;
+};
+
+export type PermissionResolvedEvent = EventBase & {
+  type: "permission.resolved";
+  callId: string;
+  tool: string;
+  decision: Exclude<PermissionDecisionType, "ask">;
+  source: "policy" | "approval" | "system";
+  reason: string;
+};
+
 export type AgentCompletedEvent = EventBase & {
   type: "agent.completed";
   output: string;
@@ -55,6 +75,8 @@ export type AgentEvent =
   | LlmDeltaEvent
   | ToolRequestedEvent
   | ToolCompletedEvent
+  | PermissionRequestedEvent
+  | PermissionResolvedEvent
   | AgentCompletedEvent
   | AgentFailedEvent
   | AgentCancelledEvent;

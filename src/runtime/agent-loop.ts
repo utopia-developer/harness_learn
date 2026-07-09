@@ -6,8 +6,16 @@ import {
   type RunState
 } from "../core/events.js";
 import type { ModelClient, ModelMessage, ToolCallChunk } from "../model/types.js";
+import { decideToolPermission } from "../permissions/permission-engine.js";
+import type {
+  ApprovalHandler,
+  ApprovalRecord,
+  ApprovalStore,
+  PermissionDecision,
+  PermissionMode
+} from "../permissions/types.js";
 import type { ToolRegistry } from "../tools/registry.js";
-import type { ToolFacts } from "../tools/types.js";
+import type { ToolContract, ToolFacts } from "../tools/types.js";
 
 export type RunAgentInput = {
   taskId: string;
@@ -16,6 +24,9 @@ export type RunAgentInput = {
   tools: ToolRegistry;
   userMessage: string;
   maxIterations: number;
+  permissionMode?: PermissionMode;
+  approvalHandler?: ApprovalHandler;
+  approvalStore?: ApprovalStore;
   now?: Clock;
   signal?: AbortSignal;
 };
@@ -109,6 +120,29 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
         return;
       }
 
+      const permissionResolution = await resolveToolPermission({
+        input,
+        state,
+        now,
+        tool,
+        toolCall,
+        mode: input.permissionMode ?? "default"
+      });
+      for (const event of permissionResolution.events) {
+        state = event.state;
+        yield event.event;
+      }
+      if (!permissionResolution.allowed) {
+        result = record(
+          state,
+          { type: "agent.failed", error: permissionResolution.reason },
+          now
+        );
+        state = result.state;
+        yield result.event;
+        return;
+      }
+
       const output = await tool.execute(toolCall.input, {
         taskId: input.taskId,
         runId: input.runId,
@@ -137,6 +171,149 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
     now
   );
   yield result.event;
+}
+
+async function resolveToolPermission(input: {
+  input: RunAgentInput;
+  state: RunState;
+  now: Clock;
+  tool: ToolContract;
+  toolCall: ToolCallChunk;
+  mode: PermissionMode;
+}): Promise<{
+  allowed: boolean;
+  reason: string;
+  events: { state: RunState; event: AgentEvent }[];
+}> {
+  const decision = decideToolPermission({ mode: input.mode, tool: input.tool });
+
+  if (decision.decision === "allow") {
+    return { allowed: true, reason: decision.reason, events: [] };
+  }
+
+  if (decision.decision === "deny") {
+    const event = record(
+      input.state,
+      {
+        type: "permission.resolved",
+        callId: input.toolCall.callId,
+        tool: input.tool.name,
+        decision: "deny",
+        source: "policy",
+        reason: decision.reason
+      },
+      input.now
+    );
+    await recordApproval(input.input.approvalStore, {
+      taskId: input.input.taskId,
+      runId: input.input.runId,
+      callId: input.toolCall.callId,
+      tool: input.tool.name,
+      decision: "deny",
+      reason: decision.reason
+    });
+    return {
+      allowed: false,
+      reason: decision.reason,
+      events: [event]
+    };
+  }
+
+  return resolveApproval(input, decision);
+}
+
+async function resolveApproval(input: {
+  input: RunAgentInput;
+  state: RunState;
+  now: Clock;
+  tool: ToolContract;
+  toolCall: ToolCallChunk;
+  mode: PermissionMode;
+}, decision: PermissionDecision): Promise<{
+  allowed: boolean;
+  reason: string;
+  events: { state: RunState; event: AgentEvent }[];
+}> {
+  const requested = record(
+    input.state,
+    {
+      type: "permission.requested",
+      callId: input.toolCall.callId,
+      tool: input.tool.name,
+      input: input.toolCall.input,
+      mode: input.mode,
+      reason: decision.reason
+    },
+    input.now
+  );
+
+  if (!input.input.approvalHandler) {
+    const reason = `Approval required for ${input.tool.name}, but no approval handler was provided`;
+    const resolved = record(
+      requested.state,
+      {
+        type: "permission.resolved",
+        callId: input.toolCall.callId,
+        tool: input.tool.name,
+        decision: "deny",
+        source: "system",
+        reason
+      },
+      input.now
+    );
+    await recordApproval(input.input.approvalStore, {
+      taskId: input.input.taskId,
+      runId: input.input.runId,
+      callId: input.toolCall.callId,
+      tool: input.tool.name,
+      decision: "deny",
+      reason
+    });
+    return { allowed: false, reason, events: [requested, resolved] };
+  }
+
+  const approval = await input.input.approvalHandler({
+    taskId: input.input.taskId,
+    runId: input.input.runId,
+    callId: input.toolCall.callId,
+    tool: input.tool.name,
+    input: input.toolCall.input,
+    reason: decision.reason
+  });
+  const finalDecision = approval.approved ? "allow" : "deny";
+  const resolved = record(
+    requested.state,
+    {
+      type: "permission.resolved",
+      callId: input.toolCall.callId,
+      tool: input.tool.name,
+      decision: finalDecision,
+      source: "approval",
+      reason: approval.reason
+    },
+    input.now
+  );
+  await recordApproval(input.input.approvalStore, {
+    taskId: input.input.taskId,
+    runId: input.input.runId,
+    callId: input.toolCall.callId,
+    tool: input.tool.name,
+    decision: finalDecision,
+    reason: approval.reason
+  });
+
+  return {
+    allowed: approval.approved,
+    reason: approval.reason,
+    events: [requested, resolved]
+  };
+}
+
+async function recordApproval(
+  store: ApprovalStore | undefined,
+  recordInput: ApprovalRecord
+): Promise<void> {
+  await store?.record(recordInput);
 }
 
 function record(
