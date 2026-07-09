@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 
 import { runAgent } from "../../src/runtime/agent-loop.js";
 import { ScriptedModelClient } from "../../src/model/scripted-model.js";
+import type { ModelClient, ModelRequest } from "../../src/model/types.js";
 import { createMemoryApprovalStore } from "../../src/permissions/approval-store.js";
+import { createMemoryToolOutputStore } from "../../src/runtime/tool-output-store.js";
 import { createToolRegistry } from "../../src/tools/registry.js";
 import type { ToolContract } from "../../src/tools/types.js";
 
@@ -316,4 +318,61 @@ test("runAgent denies non-read-only tools in read_only mode before execution", a
   const finalEvent = events.at(-1);
   assert.equal(finalEvent?.type, "agent.failed");
   assert.match(finalEvent?.type === "agent.failed" ? finalEvent.error : "", /read-only mode/i);
+});
+
+test("runAgent stores oversized tool output and sends a reference to the model", async () => {
+  const requests: ModelRequest[] = [];
+  const model: ModelClient = {
+    name: "capture",
+    async *streamResponse(request) {
+      requests.push(request);
+      if (requests.length === 1) {
+        yield { type: "tool_call", callId: "call-1", name: "large", input: {} };
+        return;
+      }
+      yield { type: "message_completed", text: "done" };
+    }
+  };
+  const outputStore = createMemoryToolOutputStore();
+
+  const events = await collect(
+    runAgent({
+      taskId: "task-1",
+      runId: "run-1",
+      model,
+      tools: createToolRegistry({
+        tools: [
+          {
+            name: "large",
+            description: "Large output",
+            source: "builtin",
+            inputSchema: { type: "object" },
+            readOnly: true,
+            destructive: false,
+            permission: "auto",
+            concurrency: "safe",
+            outputLimitBytes: 8,
+            timeoutMs: 1000,
+            execute: async () => "0123456789abcdef"
+          }
+        ]
+      }),
+      outputStore,
+      userMessage: "Use large tool",
+      maxIterations: 3,
+      now: () => new Date("2026-07-09T00:00:00.000Z")
+    })
+  );
+
+  const toolCompleted = events.find((event) => event.type === "tool.completed");
+  assert.equal(toolCompleted?.type === "tool.completed" ? toolCompleted.truncated : false, true);
+  assert.equal(
+    toolCompleted?.type === "tool.completed" ? toolCompleted.outputRef : "",
+    "tool-output://run-1/call-1"
+  );
+  assert.equal(outputStore.get("tool-output://run-1/call-1")?.content, "0123456789abcdef");
+  assert.equal(
+    requests[1]?.messages.find((message) => message.role === "tool")?.content,
+    "Tool output stored at tool-output://run-1/call-1 because it exceeded 8 bytes."
+  );
 });

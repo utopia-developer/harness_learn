@@ -16,6 +16,10 @@ import type {
 } from "../permissions/types.js";
 import type { ToolRegistry } from "../tools/registry.js";
 import type { ToolContract, ToolFacts } from "../tools/types.js";
+import {
+  createMemoryToolOutputStore,
+  type ToolOutputStore
+} from "./tool-output-store.js";
 
 export type RunAgentInput = {
   taskId: string;
@@ -27,6 +31,7 @@ export type RunAgentInput = {
   permissionMode?: PermissionMode;
   approvalHandler?: ApprovalHandler;
   approvalStore?: ApprovalStore;
+  outputStore?: ToolOutputStore;
   now?: Clock;
   signal?: AbortSignal;
 };
@@ -50,6 +55,7 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
   const toolFacts: ToolFacts = {
     readFiles: new Set()
   };
+  const outputStore = input.outputStore ?? createMemoryToolOutputStore();
 
   for (let iteration = 0; iteration < input.maxIterations; iteration += 1) {
     if (input.signal?.aborted) {
@@ -143,21 +149,36 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
         return;
       }
 
-      const output = await tool.execute(toolCall.input, {
+      const rawOutput = await tool.execute(toolCall.input, {
         taskId: input.taskId,
         runId: input.runId,
         messages,
         toolFacts
       });
+      const output = await prepareToolOutput({
+        output: rawOutput,
+        outputLimitBytes: tool.outputLimitBytes,
+        outputStore,
+        taskId: input.taskId,
+        runId: input.runId,
+        callId: toolCall.callId,
+        tool: tool.name
+      });
       messages.push({
         role: "tool",
         toolCallId: toolCall.callId,
-        content: output
+        content: output.messageContent
       });
 
       result = record(
         state,
-        { type: "tool.completed", callId: toolCall.callId, output },
+        {
+          type: "tool.completed",
+          callId: toolCall.callId,
+          output: output.eventOutput,
+          outputRef: output.outputRef,
+          truncated: output.truncated
+        },
         now
       );
       state = result.state;
@@ -171,6 +192,46 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
     now
   );
   yield result.event;
+}
+
+async function prepareToolOutput(input: {
+  output: string;
+  outputLimitBytes: number;
+  outputStore: ToolOutputStore;
+  taskId: string;
+  runId: string;
+  callId: string;
+  tool: string;
+}): Promise<{
+  eventOutput: string;
+  messageContent: string;
+  outputRef?: string;
+  truncated?: boolean;
+}> {
+  const bytes = Buffer.byteLength(input.output, "utf8");
+  if (bytes <= input.outputLimitBytes) {
+    return {
+      eventOutput: input.output,
+      messageContent: input.output
+    };
+  }
+
+  const recordOutput = await input.outputStore.put({
+    taskId: input.taskId,
+    runId: input.runId,
+    callId: input.callId,
+    tool: input.tool,
+    content: input.output,
+    bytes
+  });
+  const message = `Tool output stored at ${recordOutput.ref} because it exceeded ${input.outputLimitBytes} bytes.`;
+
+  return {
+    eventOutput: message,
+    messageContent: message,
+    outputRef: recordOutput.ref,
+    truncated: true
+  };
 }
 
 async function resolveToolPermission(input: {

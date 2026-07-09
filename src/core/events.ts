@@ -34,6 +34,8 @@ export type ToolCompletedEvent = EventBase & {
   type: "tool.completed";
   callId: string;
   output: string;
+  outputRef?: string;
+  truncated?: boolean;
 };
 
 export type PermissionRequestedEvent = EventBase & {
