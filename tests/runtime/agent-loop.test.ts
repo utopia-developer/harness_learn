@@ -1,0 +1,140 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import { runAgent } from "../../src/runtime/agent-loop.js";
+import { ScriptedModelClient } from "../../src/model/scripted-model.js";
+import type { ToolDefinition } from "../../src/tools/types.js";
+
+async function collect<T>(items: AsyncIterable<T>): Promise<T[]> {
+  const output = [];
+  for await (const item of items) {
+    output.push(item);
+  }
+  return output;
+}
+
+test("runAgent streams text and completes without tools", async () => {
+  const model = new ScriptedModelClient("scripted", [
+    [
+      { type: "text_delta", text: "hello" },
+      { type: "message_completed", text: "hello" }
+    ]
+  ]);
+
+  const events = await collect(
+    runAgent({
+      taskId: "task-1",
+      runId: "run-1",
+      model,
+      tools: [],
+      userMessage: "Say hello",
+      maxIterations: 3,
+      now: () => new Date("2026-07-09T00:00:00.000Z")
+    })
+  );
+
+  assert.deepEqual(
+    events.map((event) => event.type),
+    ["agent.started", "llm.started", "llm.delta", "agent.completed"]
+  );
+  const finalEvent = events.at(-1);
+  assert.equal(finalEvent?.type, "agent.completed");
+  assert.equal(finalEvent?.type === "agent.completed" ? finalEvent.output : "", "hello");
+});
+
+test("runAgent executes a tool call and continues with the tool result", async () => {
+  const model = new ScriptedModelClient("scripted", [
+    [{ type: "tool_call", callId: "call-1", name: "echo", input: { text: "from tool" } }],
+    [{ type: "message_completed", text: "done" }]
+  ]);
+
+  const echoTool: ToolDefinition = {
+    name: "echo",
+    description: "Echo text",
+    execute: async (input) => {
+      assert.deepEqual(input, { text: "from tool" });
+      return "from tool";
+    }
+  };
+
+  const events = await collect(
+    runAgent({
+      taskId: "task-1",
+      runId: "run-1",
+      model,
+      tools: [echoTool],
+      userMessage: "Use a tool",
+      maxIterations: 3,
+      now: () => new Date("2026-07-09T00:00:00.000Z")
+    })
+  );
+
+  assert.deepEqual(
+    events.map((event) => event.type),
+    [
+      "agent.started",
+      "llm.started",
+      "tool.requested",
+      "tool.completed",
+      "llm.started",
+      "agent.completed"
+    ]
+  );
+  const toolCompleted = events.find((event) => event.type === "tool.completed");
+  assert.equal(toolCompleted?.type === "tool.completed" ? toolCompleted.output : "", "from tool");
+});
+
+test("runAgent fails when the model keeps requesting tools beyond maxIterations", async () => {
+  const model = new ScriptedModelClient("scripted", [
+    [{ type: "tool_call", callId: "call-1", name: "echo", input: { text: "1" } }],
+    [{ type: "tool_call", callId: "call-2", name: "echo", input: { text: "2" } }]
+  ]);
+
+  const events = await collect(
+    runAgent({
+      taskId: "task-1",
+      runId: "run-1",
+      model,
+      tools: [
+        {
+          name: "echo",
+          description: "Echo text",
+          execute: async () => "ok"
+        }
+      ],
+      userMessage: "Loop",
+      maxIterations: 1,
+      now: () => new Date("2026-07-09T00:00:00.000Z")
+    })
+  );
+
+  const finalEvent = events.at(-1);
+  assert.equal(finalEvent?.type, "agent.failed");
+  assert.match(finalEvent?.type === "agent.failed" ? finalEvent.error : "", /maximum iterations/i);
+});
+
+test("runAgent emits cancelled when the abort signal is already aborted", async () => {
+  const model = new ScriptedModelClient("scripted", [
+    [{ type: "message_completed", text: "should not run" }]
+  ]);
+  const controller = new AbortController();
+  controller.abort();
+
+  const events = await collect(
+    runAgent({
+      taskId: "task-1",
+      runId: "run-1",
+      model,
+      tools: [],
+      userMessage: "Stop",
+      maxIterations: 3,
+      signal: controller.signal,
+      now: () => new Date("2026-07-09T00:00:00.000Z")
+    })
+  );
+
+  assert.deepEqual(
+    events.map((event) => event.type),
+    ["agent.started", "agent.cancelled"]
+  );
+});
