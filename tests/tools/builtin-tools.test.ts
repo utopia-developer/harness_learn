@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { createMemoryToolOutputStore } from "../../src/runtime/tool-output-store.js";
+import { createSandboxProfile } from "../../src/security/sandbox-profile.js";
 import { createBuiltinTools } from "../../src/tools/builtin-tools.js";
 
 async function createWorkspace(): Promise<string> {
@@ -228,6 +229,58 @@ test("run_command rejects workspace escape cwd", async () => {
       );
     },
     /escapes workspace/i
+  );
+});
+
+test("run_command applies sandbox path and network policy before execution", async () => {
+  const workspaceRoot = await createWorkspace();
+  const tools = createBuiltinTools({
+    workspaceRoot,
+    sandboxProfile: createSandboxProfile({
+      workspaceRoot,
+      network: { mode: "allowlist", allowedHosts: ["api.example.com"] }
+    })
+  });
+  const runCommand = tools.find((tool) => tool.name === "run_command");
+  assert.ok(runCommand);
+
+  await assert.rejects(
+    async () => {
+      await runCommand.execute(
+        { command: "cat", args: ["/etc/passwd"] },
+        { taskId: "task-1", runId: "run-1", messages: [] }
+      );
+    },
+    /outside sandbox/i
+  );
+  await assert.rejects(
+    async () => {
+      await runCommand.execute(
+        { command: "curl", args: ["https://evil.example.com"] },
+        { taskId: "task-1", runId: "run-1", messages: [] }
+      );
+    },
+    /network host not allowed/i
+  );
+});
+
+test("run_command uses sandbox command timeout", async () => {
+  const workspaceRoot = await createWorkspace();
+  const tools = createBuiltinTools({
+    workspaceRoot,
+    sandboxProfile: createSandboxProfile({ workspaceRoot, commandTimeoutMs: 25 })
+  });
+  const runCommand = tools.find((tool) => tool.name === "run_command");
+  assert.ok(runCommand);
+
+  await assert.rejects(
+    async () => {
+      await runCommand.execute(
+        { command: process.execPath, args: ["-e", "setTimeout(() => {}, 500);"] },
+        { taskId: "task-1", runId: "run-1", messages: [] }
+      );
+    },
+    /timed out/i
   );
 });
 

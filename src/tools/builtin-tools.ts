@@ -2,14 +2,17 @@ import { spawn } from "node:child_process";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 
+import { createSandboxProfile, validateCommandSandbox, type SandboxProfile } from "../security/sandbox-profile.js";
 import type { JsonSchema, ToolContract } from "./types.js";
 
 export type BuiltinToolsOptions = {
   workspaceRoot: string;
+  sandboxProfile?: SandboxProfile;
 };
 
 export function createBuiltinTools(options: BuiltinToolsOptions): ToolContract[] {
   const workspaceRoot = resolve(options.workspaceRoot);
+  const sandboxProfile = options.sandboxProfile ?? createSandboxProfile({ workspaceRoot });
 
   return [
     withReadOnlyMetadata({
@@ -115,8 +118,18 @@ export function createBuiltinTools(options: BuiltinToolsOptions): ToolContract[]
         const command = readStringField(input, "command");
         const args = readOptionalStringArrayField(input, "args");
         const cwdInput = readOptionalStringField(input, "cwd") ?? ".";
-        const cwd = resolveWorkspacePath(workspaceRoot, cwdInput, { allowRoot: true });
-        return runCommand(command, args, cwd, 30_000);
+        const validated = validateCommandSandbox({
+          profile: sandboxProfile,
+          command,
+          args,
+          cwd: cwdInput
+        });
+        return runCommand(
+          validated.command,
+          validated.args,
+          validated.cwd,
+          validated.timeoutMs
+        );
       }
     },
     withReadOnlyMetadata({
