@@ -18,6 +18,7 @@ import type {
 import { createSecretRedactor, type SecretRedactor } from "../security/redactor.js";
 import type { ToolRegistry } from "../tools/registry.js";
 import type { ToolContract, ToolFacts } from "../tools/types.js";
+import type { TraceCollector } from "../trace/trace-collector.js";
 import {
   createMemoryToolOutputStore,
   type ToolOutputStore
@@ -36,6 +37,8 @@ export type RunAgentInput = {
   outputStore?: ToolOutputStore;
   memoryStore?: MemoryStore;
   redactor?: SecretRedactor;
+  traceId?: string;
+  traceCollector?: TraceCollector;
   now?: Clock;
   signal?: AbortSignal;
 };
@@ -46,9 +49,11 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
   let state = createRunState({
     taskId: input.taskId,
     runId: input.runId,
+    traceId: input.traceId,
     now
   });
 
+  input.traceCollector?.record(state.events[0]);
   yield state.events[0];
 
   const messages: ModelMessage[] = [
@@ -64,7 +69,12 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
 
   for (let iteration = 0; iteration < input.maxIterations; iteration += 1) {
     if (input.signal?.aborted) {
-      const result = record(state, { type: "agent.cancelled", reason: "aborted" }, now);
+      const result = record(
+        state,
+        { type: "agent.cancelled", reason: "aborted" },
+        now,
+        input.traceCollector
+      );
       state = result.state;
       yield result.event;
       return;
@@ -73,7 +83,8 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
     let result = record(
       state,
       { type: "llm.started", model: input.model.name, purpose: "main" },
-      now
+      now,
+      input.traceCollector
     );
     state = result.state;
     yield result.event;
@@ -85,7 +96,7 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
       if (chunk.type === "text_delta") {
         const text = redactor.redactText(chunk.text);
         finalText += text;
-        result = record(state, { type: "llm.delta", text }, now);
+        result = record(state, { type: "llm.delta", text }, now, input.traceCollector);
         state = result.state;
         yield result.event;
       }
@@ -100,7 +111,12 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
     }
 
     if (toolCalls.length === 0) {
-      result = record(state, { type: "agent.completed", output: finalText }, now);
+      result = record(
+        state,
+        { type: "agent.completed", output: finalText },
+        now,
+        input.traceCollector
+      );
       await input.memoryStore?.add(createTaskSummaryMemory({
         taskId: input.taskId,
         runId: input.runId,
@@ -122,7 +138,8 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
           tool: toolCall.name,
           input: redactor.redactValue(toolCall.input)
         },
-        now
+        now,
+        input.traceCollector
       );
       state = result.state;
       yield result.event;
@@ -132,7 +149,8 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
         result = record(
           state,
           { type: "agent.failed", error: `Unknown tool: ${toolCall.name}` },
-          now
+          now,
+          input.traceCollector
         );
         state = result.state;
         yield result.event;
@@ -156,7 +174,8 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
         result = record(
           state,
           { type: "agent.failed", error: permissionResolution.reason },
-          now
+          now,
+          input.traceCollector
         );
         state = result.state;
         yield result.event;
@@ -194,7 +213,8 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
           outputRef: output.outputRef,
           truncated: output.truncated
         },
-        now
+        now,
+        input.traceCollector
       );
       state = result.state;
       yield result.event;
@@ -204,7 +224,8 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
   const result = record(
     state,
     { type: "agent.failed", error: `Reached maximum iterations: ${input.maxIterations}` },
-    now
+    now,
+    input.traceCollector
   );
   yield result.event;
 }
@@ -279,7 +300,8 @@ async function resolveToolPermission(input: {
         source: "policy",
         reason: decision.reason
       },
-      input.now
+      input.now,
+      input.input.traceCollector
     );
     await recordApproval(input.input.approvalStore, {
       taskId: input.input.taskId,
@@ -322,7 +344,8 @@ async function resolveApproval(input: {
       mode: input.mode,
       reason: decision.reason
     },
-    input.now
+    input.now,
+    input.input.traceCollector
   );
 
   if (!input.input.approvalHandler) {
@@ -337,7 +360,8 @@ async function resolveApproval(input: {
         source: "system",
         reason
       },
-      input.now
+      input.now,
+      input.input.traceCollector
     );
     await recordApproval(input.input.approvalStore, {
       taskId: input.input.taskId,
@@ -369,7 +393,8 @@ async function resolveApproval(input: {
       source: "approval",
       reason: approval.reason
     },
-    input.now
+    input.now,
+    input.input.traceCollector
   );
   await recordApproval(input.input.approvalStore, {
     taskId: input.input.taskId,
@@ -397,11 +422,14 @@ async function recordApproval(
 function record(
   state: RunState,
   event: Parameters<typeof appendEvent>[1],
-  now: Clock
+  now: Clock,
+  traceCollector?: TraceCollector
 ): { state: RunState; event: AgentEvent } {
   const next = appendEvent(state, event, { now });
+  const emitted = next.events[next.events.length - 1];
+  traceCollector?.record(emitted);
   return {
     state: next,
-    event: next.events[next.events.length - 1]
+    event: emitted
   };
 }

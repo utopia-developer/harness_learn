@@ -5,6 +5,7 @@ export type RunStatus = "running" | "completed" | "failed" | "cancelled";
 export type EventBase = {
   taskId: string;
   runId: string;
+  traceId: string;
   timestamp: string;
 };
 
@@ -101,6 +102,7 @@ export type RunState = {
 export function createRunState(input: {
   taskId: string;
   runId: string;
+  traceId?: string;
   now?: Clock;
 }): RunState {
   const now = input.now ?? (() => new Date());
@@ -111,19 +113,23 @@ export function createRunState(input: {
     events: []
   };
 
-  return appendEvent(state, { type: "agent.started" }, { now });
+  return appendEvent(state, { type: "agent.started" }, {
+    now,
+    traceId: input.traceId ?? `${input.runId}-trace`
+  });
 }
 
 export function appendEvent(
   state: RunState,
   event: AgentEventInput,
-  options: { now?: Clock } = {}
+  options: { now?: Clock; traceId?: string } = {}
 ): RunState {
   const now = options.now ?? (() => new Date());
   const stamped = {
     ...event,
     taskId: state.taskId,
     runId: state.runId,
+    traceId: options.traceId ?? state.events[0]?.traceId ?? `${state.runId}-trace`,
     timestamp: now().toISOString()
   } as AgentEvent;
 

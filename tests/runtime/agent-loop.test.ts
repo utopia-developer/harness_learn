@@ -7,6 +7,7 @@ import type { ModelClient, ModelRequest } from "../../src/model/types.js";
 import { createMemoryStore } from "../../src/memory/memory-store.js";
 import { createMemoryApprovalStore } from "../../src/permissions/approval-store.js";
 import { createMemoryToolOutputStore } from "../../src/runtime/tool-output-store.js";
+import { createTraceCollector } from "../../src/trace/trace-collector.js";
 import { createToolRegistry } from "../../src/tools/registry.js";
 import type { ToolContract } from "../../src/tools/types.js";
 
@@ -481,4 +482,31 @@ test("runAgent does not write task memory when the run fails", async () => {
   );
 
   assert.deepEqual(memoryStore.list(), []);
+});
+
+test("runAgent stamps every event with traceId and records trace events", async () => {
+  const model = new ScriptedModelClient("scripted", [
+    [{ type: "message_completed", text: "done" }]
+  ]);
+  const traceCollector = createTraceCollector();
+
+  const events = await collect(
+    runAgent({
+      taskId: "task-1",
+      runId: "run-1",
+      traceId: "trace-custom",
+      traceCollector,
+      model,
+      tools: createToolRegistry({ tools: [] }),
+      userMessage: "Trace this",
+      maxIterations: 3,
+      now: () => new Date("2026-07-09T00:00:00.000Z")
+    })
+  );
+
+  assert.deepEqual([...new Set(events.map((event) => event.traceId))], ["trace-custom"]);
+  assert.deepEqual(
+    traceCollector.getTrace("trace-custom")?.events.map((event) => event.type),
+    ["agent.started", "llm.started", "agent.completed"]
+  );
 });

@@ -18,6 +18,7 @@ test("createRunState starts a run with an agent.started event", () => {
       type: "agent.started",
       taskId: "task-1",
       runId: "run-1",
+      traceId: "run-1-trace",
       timestamp: "2026-07-09T00:00:00.000Z"
     }
   ]);
@@ -41,6 +42,7 @@ test("appendEvent preserves order and stamps runtime metadata", () => {
     type: "llm.started",
     taskId: "task-1",
     runId: "run-1",
+    traceId: "run-1-trace",
     timestamp: "2026-07-09T00:00:01.000Z",
     model: "scripted",
     purpose: "main"
