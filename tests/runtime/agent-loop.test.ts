@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 
 import { runAgent } from "../../src/runtime/agent-loop.js";
 import { ScriptedModelClient } from "../../src/model/scripted-model.js";
-import type { ToolDefinition } from "../../src/tools/types.js";
+import { createToolRegistry } from "../../src/tools/registry.js";
+import type { ToolContract } from "../../src/tools/types.js";
 
 async function collect<T>(items: AsyncIterable<T>): Promise<T[]> {
   const output = [];
@@ -26,7 +27,7 @@ test("runAgent streams text and completes without tools", async () => {
       taskId: "task-1",
       runId: "run-1",
       model,
-      tools: [],
+      tools: createToolRegistry({ tools: [] }),
       userMessage: "Say hello",
       maxIterations: 3,
       now: () => new Date("2026-07-09T00:00:00.000Z")
@@ -48,9 +49,17 @@ test("runAgent executes a tool call and continues with the tool result", async (
     [{ type: "message_completed", text: "done" }]
   ]);
 
-  const echoTool: ToolDefinition = {
+  const echoTool: ToolContract = {
     name: "echo",
     description: "Echo text",
+    source: "builtin",
+    inputSchema: { type: "object" },
+    readOnly: true,
+    destructive: false,
+    permission: "auto",
+    concurrency: "safe",
+    outputLimitBytes: 1024,
+    timeoutMs: 1000,
     execute: async (input) => {
       assert.deepEqual(input, { text: "from tool" });
       return "from tool";
@@ -62,7 +71,7 @@ test("runAgent executes a tool call and continues with the tool result", async (
       taskId: "task-1",
       runId: "run-1",
       model,
-      tools: [echoTool],
+      tools: createToolRegistry({ tools: [echoTool] }),
       userMessage: "Use a tool",
       maxIterations: 3,
       now: () => new Date("2026-07-09T00:00:00.000Z")
@@ -95,13 +104,21 @@ test("runAgent fails when the model keeps requesting tools beyond maxIterations"
       taskId: "task-1",
       runId: "run-1",
       model,
-      tools: [
+      tools: createToolRegistry({ tools: [
         {
           name: "echo",
           description: "Echo text",
+          source: "builtin",
+          inputSchema: { type: "object" },
+          readOnly: true,
+          destructive: false,
+          permission: "auto",
+          concurrency: "safe",
+          outputLimitBytes: 1024,
+          timeoutMs: 1000,
           execute: async () => "ok"
         }
-      ],
+      ] }),
       userMessage: "Loop",
       maxIterations: 1,
       now: () => new Date("2026-07-09T00:00:00.000Z")
@@ -125,7 +142,7 @@ test("runAgent emits cancelled when the abort signal is already aborted", async 
       taskId: "task-1",
       runId: "run-1",
       model,
-      tools: [],
+      tools: createToolRegistry({ tools: [] }),
       userMessage: "Stop",
       maxIterations: 3,
       signal: controller.signal,
@@ -137,4 +154,43 @@ test("runAgent emits cancelled when the abort signal is already aborted", async 
     events.map((event) => event.type),
     ["agent.started", "agent.cancelled"]
   );
+});
+
+test("runAgent treats disabled tools as unavailable at execution time", async () => {
+  const model = new ScriptedModelClient("scripted", [
+    [{ type: "tool_call", callId: "call-1", name: "echo", input: { text: "blocked" } }]
+  ]);
+
+  const events = await collect(
+    runAgent({
+      taskId: "task-1",
+      runId: "run-1",
+      model,
+      tools: createToolRegistry({
+        tools: [
+          {
+            name: "echo",
+            description: "Echo text",
+            source: "builtin",
+            inputSchema: { type: "object" },
+            readOnly: true,
+            destructive: false,
+            permission: "auto",
+            concurrency: "safe",
+            outputLimitBytes: 1024,
+            timeoutMs: 1000,
+            execute: async () => "should not execute"
+          }
+        ],
+        disabledTools: ["echo"]
+      }),
+      userMessage: "Use disabled tool",
+      maxIterations: 3,
+      now: () => new Date("2026-07-09T00:00:00.000Z")
+    })
+  );
+
+  const finalEvent = events.at(-1);
+  assert.equal(finalEvent?.type, "agent.failed");
+  assert.match(finalEvent?.type === "agent.failed" ? finalEvent.error : "", /unknown tool/i);
 });

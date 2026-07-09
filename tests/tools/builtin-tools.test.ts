@@ -28,6 +28,48 @@ test("read_file returns file content relative to the workspace", async () => {
   assert.equal(output, "hello harness\n");
 });
 
+test("builtin tools expose runtime metadata for safe scheduling", async () => {
+  const workspaceRoot = await createWorkspace();
+  const tools = createBuiltinTools({ workspaceRoot });
+
+  assert.deepEqual(
+    tools.map((tool) => ({
+      name: tool.name,
+      source: tool.source,
+      readOnly: tool.readOnly,
+      destructive: tool.destructive,
+      permission: tool.permission,
+      concurrency: tool.concurrency
+    })),
+    [
+      {
+        name: "read_file",
+        source: "builtin",
+        readOnly: true,
+        destructive: false,
+        permission: "auto",
+        concurrency: "safe"
+      },
+      {
+        name: "list_files",
+        source: "builtin",
+        readOnly: true,
+        destructive: false,
+        permission: "auto",
+        concurrency: "safe"
+      },
+      {
+        name: "search_text",
+        source: "builtin",
+        readOnly: true,
+        destructive: false,
+        permission: "auto",
+        concurrency: "safe"
+      }
+    ]
+  );
+});
+
 test("list_files returns sorted workspace-relative file paths", async () => {
   const workspaceRoot = await createWorkspace();
   const tools = createBuiltinTools({ workspaceRoot });

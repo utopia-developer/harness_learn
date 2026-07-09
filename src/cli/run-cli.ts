@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { EchoModelClient } from "../model/echo-model.js";
 import { runAgent } from "../runtime/agent-loop.js";
 import { createBuiltinTools } from "../tools/builtin-tools.js";
+import { createToolRegistry } from "../tools/registry.js";
 
 export type RunCliInput = {
   args: string[];
@@ -18,7 +19,9 @@ export async function runCli(input: RunCliInput): Promise<number> {
   }
 
   const model = new EchoModelClient();
-  const tools = createBuiltinTools({ workspaceRoot: input.cwd });
+  const tools = createToolRegistry({
+    tools: createBuiltinTools({ workspaceRoot: input.cwd })
+  });
 
   for await (const event of runAgent({
     taskId: randomUUID(),

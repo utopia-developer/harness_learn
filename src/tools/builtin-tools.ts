@@ -1,35 +1,42 @@
 import { readdir, readFile } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 
-import type { ToolDefinition } from "./types.js";
+import type { JsonSchema, ToolContract } from "./types.js";
 
 export type BuiltinToolsOptions = {
   workspaceRoot: string;
 };
 
-export function createBuiltinTools(options: BuiltinToolsOptions): ToolDefinition[] {
+export function createBuiltinTools(options: BuiltinToolsOptions): ToolContract[] {
   const workspaceRoot = resolve(options.workspaceRoot);
 
   return [
-    {
+    withReadOnlyMetadata({
       name: "read_file",
       description: "Read a UTF-8 text file from the workspace.",
+      inputSchema: objectSchema({
+        path: { type: "string", description: "Workspace-relative file path" }
+      }, ["path"]),
       execute: async (input) => {
         const path = readStringField(input, "path");
         return readFile(resolveWorkspacePath(workspaceRoot, path), "utf8");
       }
-    },
-    {
+    }),
+    withReadOnlyMetadata({
       name: "list_files",
       description: "List files under the workspace.",
+      inputSchema: objectSchema({}),
       execute: async () => {
         const files = await listWorkspaceFiles(workspaceRoot);
         return files.join("\n");
       }
-    },
-    {
+    }),
+    withReadOnlyMetadata({
       name: "search_text",
       description: "Search workspace text files for a plain-text query.",
+      inputSchema: objectSchema({
+        query: { type: "string", description: "Plain text query" }
+      }, ["query"]),
       execute: async (input) => {
         const query = readStringField(input, "query");
         const files = await listWorkspaceFiles(workspaceRoot);
@@ -48,8 +55,35 @@ export function createBuiltinTools(options: BuiltinToolsOptions): ToolDefinition
 
         return matches.join("\n");
       }
-    }
+    })
   ];
+}
+
+function withReadOnlyMetadata(
+  tool: Pick<ToolContract, "name" | "description" | "inputSchema" | "execute">
+): ToolContract {
+  return {
+    ...tool,
+    source: "builtin",
+    readOnly: true,
+    destructive: false,
+    permission: "auto",
+    concurrency: "safe",
+    outputLimitBytes: 32_000,
+    timeoutMs: 5_000
+  };
+}
+
+function objectSchema(
+  properties: Record<string, JsonSchema>,
+  required: string[] = []
+): JsonSchema {
+  return {
+    type: "object",
+    properties,
+    required,
+    additionalProperties: false
+  };
 }
 
 async function listWorkspaceFiles(workspaceRoot: string): Promise<string[]> {

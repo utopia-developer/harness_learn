@@ -6,13 +6,13 @@ import {
   type RunState
 } from "../core/events.js";
 import type { ModelClient, ModelMessage, ToolCallChunk } from "../model/types.js";
-import type { ToolDefinition } from "../tools/types.js";
+import type { ToolRegistry } from "../tools/registry.js";
 
 export type RunAgentInput = {
   taskId: string;
   runId: string;
   model: ModelClient;
-  tools: ToolDefinition[];
+  tools: ToolRegistry;
   userMessage: string;
   maxIterations: number;
   now?: Clock;
@@ -93,7 +93,7 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
       state = result.state;
       yield result.event;
 
-      const tool = input.tools.find((candidate) => candidate.name === toolCall.name);
+      const tool = input.tools.get(toolCall.name);
       if (!tool) {
         result = record(
           state,
