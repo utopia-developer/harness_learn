@@ -1,5 +1,5 @@
-import { readdir, readFile } from "node:fs/promises";
-import { relative, resolve } from "node:path";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, relative, resolve } from "node:path";
 
 import type { JsonSchema, ToolContract } from "./types.js";
 
@@ -17,11 +17,50 @@ export function createBuiltinTools(options: BuiltinToolsOptions): ToolContract[]
       inputSchema: objectSchema({
         path: { type: "string", description: "Workspace-relative file path" }
       }, ["path"]),
-      execute: async (input) => {
+      execute: async (input, context) => {
         const path = readStringField(input, "path");
-        return readFile(resolveWorkspacePath(workspaceRoot, path), "utf8");
+        const absolutePath = resolveWorkspacePath(workspaceRoot, path);
+        const workspacePath = toWorkspaceRelative(workspaceRoot, absolutePath);
+        context.toolFacts?.readFiles.add(workspacePath);
+        try {
+          return await readFile(absolutePath, "utf8");
+        } catch (error) {
+          if (isNodeError(error) && error.code === "ENOENT") {
+            throw new Error(`File not found: ${workspacePath}`);
+          }
+          throw error;
+        }
       }
     }),
+    {
+      name: "write_file",
+      description: "Write a UTF-8 text file inside the workspace after the target has been read.",
+      source: "builtin",
+      inputSchema: objectSchema({
+        path: { type: "string", description: "Workspace-relative file path" },
+        content: { type: "string", description: "Complete replacement file content" }
+      }, ["path", "content"]),
+      readOnly: false,
+      destructive: true,
+      permission: "ask",
+      concurrency: "exclusive",
+      outputLimitBytes: 4_000,
+      timeoutMs: 5_000,
+      execute: async (input, context) => {
+        const path = readStringField(input, "path");
+        const content = readStringField(input, "content", { allowEmpty: true });
+        const absolutePath = resolveWorkspacePath(workspaceRoot, path);
+        const workspacePath = toWorkspaceRelative(workspaceRoot, absolutePath);
+
+        if (!context.toolFacts?.readFiles.has(workspacePath)) {
+          throw new Error(`Refusing to write ${workspacePath}: read file before write`);
+        }
+
+        await mkdir(dirname(absolutePath), { recursive: true });
+        await writeFile(absolutePath, content, "utf8");
+        return `Wrote ${workspacePath}`;
+      }
+    },
     withReadOnlyMetadata({
       name: "list_files",
       description: "List files under the workspace.",
@@ -126,15 +165,23 @@ function toWorkspaceRelative(workspaceRoot: string, absolutePath: string): strin
   return relative(workspaceRoot, absolutePath).split("\\").join("/");
 }
 
-function readStringField(input: unknown, field: string): string {
+function readStringField(
+  input: unknown,
+  field: string,
+  options: { allowEmpty?: boolean } = {}
+): string {
   if (!input || typeof input !== "object") {
     throw new Error(`Expected object input with string field "${field}"`);
   }
 
   const value = (input as Record<string, unknown>)[field];
-  if (typeof value !== "string" || value.length === 0) {
+  if (typeof value !== "string" || (!options.allowEmpty && value.length === 0)) {
     throw new Error(`Expected non-empty string field "${field}"`);
   }
 
   return value;
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
 }

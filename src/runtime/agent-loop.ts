@@ -7,6 +7,7 @@ import {
 } from "../core/events.js";
 import type { ModelClient, ModelMessage, ToolCallChunk } from "../model/types.js";
 import type { ToolRegistry } from "../tools/registry.js";
+import type { ToolFacts } from "../tools/types.js";
 
 export type RunAgentInput = {
   taskId: string;
@@ -35,6 +36,9 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
       content: input.userMessage
     }
   ];
+  const toolFacts: ToolFacts = {
+    readFiles: new Set()
+  };
 
   for (let iteration = 0; iteration < input.maxIterations; iteration += 1) {
     if (input.signal?.aborted) {
@@ -108,7 +112,8 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
       const output = await tool.execute(toolCall.input, {
         taskId: input.taskId,
         runId: input.runId,
-        messages
+        messages,
+        toolFacts
       });
       messages.push({
         role: "tool",

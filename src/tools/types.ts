@@ -4,6 +4,11 @@ export type ToolExecutionContext = {
   taskId: string;
   runId: string;
   messages: ModelMessage[];
+  toolFacts?: ToolFacts;
+};
+
+export type ToolFacts = {
+  readFiles: Set<string>;
 };
 
 export type ToolDefinition = {
