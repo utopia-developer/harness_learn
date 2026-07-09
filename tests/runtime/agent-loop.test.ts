@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { runAgent } from "../../src/runtime/agent-loop.js";
 import { ScriptedModelClient } from "../../src/model/scripted-model.js";
 import type { ModelClient, ModelRequest } from "../../src/model/types.js";
+import { createMemoryStore } from "../../src/memory/memory-store.js";
 import { createMemoryApprovalStore } from "../../src/permissions/approval-store.js";
 import { createMemoryToolOutputStore } from "../../src/runtime/tool-output-store.js";
 import { createToolRegistry } from "../../src/tools/registry.js";
@@ -378,4 +379,57 @@ test("runAgent stores oversized tool output and sends a reference to the model",
     requests[1]?.messages.find((message) => message.role === "tool")?.content,
     "Tool output stored at tool-output://run-1/call-1 because it exceeded 8 bytes."
   );
+});
+
+test("runAgent writes task summary memory only after completion", async () => {
+  const model = new ScriptedModelClient("scripted", [
+    [{ type: "message_completed", text: "final answer" }]
+  ]);
+  const memoryStore = createMemoryStore();
+
+  await collect(
+    runAgent({
+      taskId: "task-1",
+      runId: "run-1",
+      model,
+      tools: createToolRegistry({ tools: [] }),
+      memoryStore,
+      userMessage: "Remember this task",
+      maxIterations: 3,
+      now: () => new Date("2026-07-09T00:00:00.000Z")
+    })
+  );
+
+  assert.deepEqual(memoryStore.list(), [
+    {
+      id: "memory-1",
+      taskId: "task-1",
+      runId: "run-1",
+      kind: "task_summary",
+      content: "User goal: Remember this task\nFinal output: final answer",
+      createdAt: "2026-07-09T00:00:00.000Z"
+    }
+  ]);
+});
+
+test("runAgent does not write task memory when the run fails", async () => {
+  const model = new ScriptedModelClient("scripted", [
+    [{ type: "tool_call", callId: "call-1", name: "missing", input: {} }]
+  ]);
+  const memoryStore = createMemoryStore();
+
+  await collect(
+    runAgent({
+      taskId: "task-1",
+      runId: "run-1",
+      model,
+      tools: createToolRegistry({ tools: [] }),
+      memoryStore,
+      userMessage: "This should fail",
+      maxIterations: 3,
+      now: () => new Date("2026-07-09T00:00:00.000Z")
+    })
+  );
+
+  assert.deepEqual(memoryStore.list(), []);
 });

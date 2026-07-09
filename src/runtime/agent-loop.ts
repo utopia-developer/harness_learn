@@ -5,6 +5,7 @@ import {
   type Clock,
   type RunState
 } from "../core/events.js";
+import { createTaskSummaryMemory, type MemoryStore } from "../memory/memory-store.js";
 import type { ModelClient, ModelMessage, ToolCallChunk } from "../model/types.js";
 import { decideToolPermission } from "../permissions/permission-engine.js";
 import type {
@@ -32,6 +33,7 @@ export type RunAgentInput = {
   approvalHandler?: ApprovalHandler;
   approvalStore?: ApprovalStore;
   outputStore?: ToolOutputStore;
+  memoryStore?: MemoryStore;
   now?: Clock;
   signal?: AbortSignal;
 };
@@ -95,6 +97,13 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
 
     if (toolCalls.length === 0) {
       result = record(state, { type: "agent.completed", output: finalText }, now);
+      await input.memoryStore?.add(createTaskSummaryMemory({
+        taskId: input.taskId,
+        runId: input.runId,
+        userMessage: input.userMessage,
+        output: finalText,
+        createdAt: result.event.timestamp
+      }));
       state = result.state;
       yield result.event;
       return;
