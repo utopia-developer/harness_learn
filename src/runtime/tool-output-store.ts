@@ -12,6 +12,7 @@ export type StoreToolOutputInput = Omit<ToolOutputRecord, "ref">;
 
 export type ToolOutputStore = {
   put(input: StoreToolOutputInput): Promise<ToolOutputRecord> | ToolOutputRecord;
+  get(ref: string): Promise<ToolOutputRecord | undefined> | ToolOutputRecord | undefined;
 };
 
 export type MemoryToolOutputStore = ToolOutputStore & {

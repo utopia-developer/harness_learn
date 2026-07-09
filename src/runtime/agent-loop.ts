@@ -153,7 +153,8 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
         taskId: input.taskId,
         runId: input.runId,
         messages,
-        toolFacts
+        toolFacts,
+        outputStore
       });
       const output = await prepareToolOutput({
         output: rawOutput,

@@ -1,10 +1,12 @@
 import type { ModelMessage } from "../model/types.js";
+import type { ToolOutputStore } from "../runtime/tool-output-store.js";
 
 export type ToolExecutionContext = {
   taskId: string;
   runId: string;
   messages: ModelMessage[];
   toolFacts?: ToolFacts;
+  outputStore?: ToolOutputStore;
 };
 
 export type ToolFacts = {

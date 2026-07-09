@@ -370,7 +370,10 @@ test("runAgent stores oversized tool output and sends a reference to the model",
     toolCompleted?.type === "tool.completed" ? toolCompleted.outputRef : "",
     "tool-output://run-1/call-1"
   );
-  assert.equal(outputStore.get("tool-output://run-1/call-1")?.content, "0123456789abcdef");
+  assert.equal(
+    (await outputStore.get("tool-output://run-1/call-1"))?.content,
+    "0123456789abcdef"
+  );
   assert.equal(
     requests[1]?.messages.find((message) => message.role === "tool")?.content,
     "Tool output stored at tool-output://run-1/call-1 because it exceeded 8 bytes."

@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
+import { createMemoryToolOutputStore } from "../../src/runtime/tool-output-store.js";
 import { createBuiltinTools } from "../../src/tools/builtin-tools.js";
 
 async function createWorkspace(): Promise<string> {
@@ -82,6 +83,14 @@ test("builtin tools expose runtime metadata for safe scheduling", async () => {
         destructive: true,
         permission: "ask",
         concurrency: "exclusive"
+      },
+      {
+        name: "read_tool_output",
+        source: "builtin",
+        readOnly: true,
+        destructive: false,
+        permission: "auto",
+        concurrency: "safe"
       }
     ]
   );
@@ -220,4 +229,27 @@ test("run_command rejects workspace escape cwd", async () => {
     },
     /escapes workspace/i
   );
+});
+
+test("read_tool_output returns stored oversized tool output by reference", async () => {
+  const workspaceRoot = await createWorkspace();
+  const outputStore = createMemoryToolOutputStore();
+  const stored = await outputStore.put({
+    taskId: "task-1",
+    runId: "run-1",
+    callId: "call-1",
+    tool: "large",
+    content: "large output content",
+    bytes: 20
+  });
+  const tools = createBuiltinTools({ workspaceRoot });
+  const readToolOutput = tools.find((tool) => tool.name === "read_tool_output");
+  assert.ok(readToolOutput);
+
+  const output = await readToolOutput.execute(
+    { ref: stored.ref },
+    { taskId: "task-1", runId: "run-1", messages: [], outputStore }
+  );
+
+  assert.equal(output, "large output content");
 });

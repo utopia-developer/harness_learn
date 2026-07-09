@@ -118,7 +118,22 @@ export function createBuiltinTools(options: BuiltinToolsOptions): ToolContract[]
         const cwd = resolveWorkspacePath(workspaceRoot, cwdInput, { allowRoot: true });
         return runCommand(command, args, cwd, 30_000);
       }
-    }
+    },
+    withReadOnlyMetadata({
+      name: "read_tool_output",
+      description: "Read stored tool output by reference.",
+      inputSchema: objectSchema({
+        ref: { type: "string", description: "Tool output reference" }
+      }, ["ref"]),
+      execute: async (input, context) => {
+        const ref = readStringField(input, "ref");
+        const record = await context.outputStore?.get(ref);
+        if (!record) {
+          throw new Error(`Tool output not found: ${ref}`);
+        }
+        return record.content;
+      }
+    })
   ];
 }
 
