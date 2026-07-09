@@ -381,6 +381,55 @@ test("runAgent stores oversized tool output and sends a reference to the model",
   );
 });
 
+test("runAgent redacts secrets from LLM and tool outputs before emitting events", async () => {
+  const secret = "sk-abcdefghijklmnopqrstuvwxyz1234567890ABCD";
+  const requests: ModelRequest[] = [];
+  const model: ModelClient = {
+    name: "secret-model",
+    async *streamResponse(request) {
+      requests.push(request);
+      if (requests.length === 1) {
+        yield { type: "text_delta", text: `model saw ${secret}` };
+        yield { type: "tool_call", callId: "call-1", name: "secret_tool", input: {} };
+        return;
+      }
+      yield { type: "message_completed", text: `final ${secret}` };
+    }
+  };
+
+  const events = await collect(
+    runAgent({
+      taskId: "task-1",
+      runId: "run-1",
+      model,
+      tools: createToolRegistry({
+        tools: [
+          {
+            name: "secret_tool",
+            description: "Return secret",
+            source: "builtin",
+            inputSchema: { type: "object" },
+            readOnly: true,
+            destructive: false,
+            permission: "auto",
+            concurrency: "safe",
+            outputLimitBytes: 1024,
+            timeoutMs: 1000,
+            execute: async () => `tool ${secret}`
+          }
+        ]
+      }),
+      userMessage: `user ${secret}`,
+      maxIterations: 3,
+      now: () => new Date("2026-07-09T00:00:00.000Z")
+    })
+  );
+
+  assert.equal(JSON.stringify(events).includes(secret), false);
+  assert.equal(JSON.stringify(requests).includes(secret), false);
+  assert.equal(JSON.stringify(events).includes("[REDACTED:openai-api-key]"), true);
+});
+
 test("runAgent writes task summary memory only after completion", async () => {
   const model = new ScriptedModelClient("scripted", [
     [{ type: "message_completed", text: "final answer" }]

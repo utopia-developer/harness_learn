@@ -15,6 +15,7 @@ import type {
   PermissionDecision,
   PermissionMode
 } from "../permissions/types.js";
+import { createSecretRedactor, type SecretRedactor } from "../security/redactor.js";
 import type { ToolRegistry } from "../tools/registry.js";
 import type { ToolContract, ToolFacts } from "../tools/types.js";
 import {
@@ -34,12 +35,14 @@ export type RunAgentInput = {
   approvalStore?: ApprovalStore;
   outputStore?: ToolOutputStore;
   memoryStore?: MemoryStore;
+  redactor?: SecretRedactor;
   now?: Clock;
   signal?: AbortSignal;
 };
 
 export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent> {
   const now = input.now ?? (() => new Date());
+  const redactor = input.redactor ?? createSecretRedactor();
   let state = createRunState({
     taskId: input.taskId,
     runId: input.runId,
@@ -51,7 +54,7 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
   const messages: ModelMessage[] = [
     {
       role: "user",
-      content: input.userMessage
+      content: redactor.redactText(input.userMessage)
     }
   ];
   const toolFacts: ToolFacts = {
@@ -80,8 +83,9 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
 
     for await (const chunk of input.model.streamResponse({ messages })) {
       if (chunk.type === "text_delta") {
-        finalText += chunk.text;
-        result = record(state, { type: "llm.delta", text: chunk.text }, now);
+        const text = redactor.redactText(chunk.text);
+        finalText += text;
+        result = record(state, { type: "llm.delta", text }, now);
         state = result.state;
         yield result.event;
       }
@@ -91,7 +95,7 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
       }
 
       if (chunk.type === "message_completed") {
-        finalText = chunk.text;
+        finalText = redactor.redactText(chunk.text);
       }
     }
 
@@ -100,7 +104,7 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
       await input.memoryStore?.add(createTaskSummaryMemory({
         taskId: input.taskId,
         runId: input.runId,
-        userMessage: input.userMessage,
+        userMessage: redactor.redactText(input.userMessage),
         output: finalText,
         createdAt: result.event.timestamp
       }));
@@ -116,7 +120,7 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
           type: "tool.requested",
           callId: toolCall.callId,
           tool: toolCall.name,
-          input: toolCall.input
+          input: redactor.redactValue(toolCall.input)
         },
         now
       );
@@ -141,7 +145,8 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
         now,
         tool,
         toolCall,
-        mode: input.permissionMode ?? "default"
+        mode: input.permissionMode ?? "default",
+        redactor
       });
       for (const event of permissionResolution.events) {
         state = event.state;
@@ -166,7 +171,7 @@ export async function* runAgent(input: RunAgentInput): AsyncIterable<AgentEvent>
         outputStore
       });
       const output = await prepareToolOutput({
-        output: rawOutput,
+        output: redactor.redactText(rawOutput),
         outputLimitBytes: tool.outputLimitBytes,
         outputStore,
         taskId: input.taskId,
@@ -251,6 +256,7 @@ async function resolveToolPermission(input: {
   tool: ToolContract;
   toolCall: ToolCallChunk;
   mode: PermissionMode;
+  redactor: SecretRedactor;
 }): Promise<{
   allowed: boolean;
   reason: string;
@@ -300,6 +306,7 @@ async function resolveApproval(input: {
   tool: ToolContract;
   toolCall: ToolCallChunk;
   mode: PermissionMode;
+  redactor: SecretRedactor;
 }, decision: PermissionDecision): Promise<{
   allowed: boolean;
   reason: string;
@@ -311,7 +318,7 @@ async function resolveApproval(input: {
       type: "permission.requested",
       callId: input.toolCall.callId,
       tool: input.tool.name,
-      input: input.toolCall.input,
+      input: input.redactor.redactValue(input.toolCall.input),
       mode: input.mode,
       reason: decision.reason
     },
@@ -348,7 +355,7 @@ async function resolveApproval(input: {
     runId: input.input.runId,
     callId: input.toolCall.callId,
     tool: input.tool.name,
-    input: input.toolCall.input,
+    input: input.redactor.redactValue(input.toolCall.input),
     reason: decision.reason
   });
   const finalDecision = approval.approved ? "allow" : "deny";
