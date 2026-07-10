@@ -12,6 +12,7 @@ import {
 } from "../../../packages/contracts/src/index.js";
 import { createApprovalQueueStore, type ApprovalQueueStore } from "./approval-queue-store.js";
 import { createDemoConsoleDashboard } from "./dashboard-fixture.js";
+import { createMetricsStore, type MetricsStore } from "./metrics-store.js";
 import { createReleaseReadinessStore, type ReleaseReadinessStore } from "./release-readiness-store.js";
 import { createRunTraceStore, type RunTraceStore } from "./run-trace-store.js";
 import { createTeamGovernanceStore, type TeamGovernanceStore } from "./team-governance-store.js";
@@ -24,6 +25,7 @@ export type ApiServerOptions = {
   approvalQueueStore?: ApprovalQueueStore;
   releaseReadinessStore?: ReleaseReadinessStore;
   teamGovernanceStore?: TeamGovernanceStore;
+  metricsStore?: MetricsStore;
 };
 
 export type ApiRequest = {
@@ -57,6 +59,7 @@ const defaultRunTraceStore = createRunTraceStore();
 const defaultApprovalQueueStore = createApprovalQueueStore();
 const defaultReleaseReadinessStore = createReleaseReadinessStore();
 const defaultTeamGovernanceStore = createTeamGovernanceStore();
+const defaultMetricsStore = createMetricsStore();
 
 export async function handleApiRequest(
   request: ApiRequest,
@@ -68,6 +71,7 @@ export async function handleApiRequest(
   const approvalQueueStore = options.approvalQueueStore ?? defaultApprovalQueueStore;
   const releaseReadinessStore = options.releaseReadinessStore ?? defaultReleaseReadinessStore;
   const teamGovernanceStore = options.teamGovernanceStore ?? defaultTeamGovernanceStore;
+  const metricsStore = options.metricsStore ?? defaultMetricsStore;
   const pathname = parsePathname(request);
 
   if (request.method === "GET" && pathname === API_ENDPOINTS.health) {
@@ -134,6 +138,18 @@ export async function handleApiRequest(
 
   if (request.method === "GET" && pathname === API_ENDPOINTS.metricsSummary) {
     return jsonResponse(200, taskCenterStore.getMetricsSummary());
+  }
+
+  if (request.method === "GET" && pathname === "/api/v1/metrics/cost") {
+    return jsonResponse(200, metricsStore.getCost(parseProjectId(request)));
+  }
+
+  if (request.method === "GET" && pathname === "/api/v1/metrics/quality") {
+    return jsonResponse(200, metricsStore.getQuality(parseProjectId(request)));
+  }
+
+  if (request.method === "GET" && pathname === "/api/v1/metrics/runtime") {
+    return jsonResponse(200, metricsStore.getRuntime(parseProjectId(request)));
   }
 
   const projectPolicyMatch = pathname.match(/^\/api\/v1\/projects\/([^/]+)\/policy$/);
@@ -305,6 +321,11 @@ function parseApprovalStatus(request: ApiRequest): ApprovalStatus | "all" | unde
     return status;
   }
   return undefined;
+}
+
+function parseProjectId(request: ApiRequest): string {
+  const url = new URL(request.url ?? "/", "http://127.0.0.1");
+  return url.searchParams.get("projectId") ?? "project-harness";
 }
 
 function parseApprovalActionRequest(body: unknown): ApprovalActionRequest {

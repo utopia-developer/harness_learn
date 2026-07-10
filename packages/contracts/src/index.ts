@@ -334,6 +334,49 @@ export type PluginActionResponse = {
   message: string;
 };
 
+export type MetricsCostBreakdownItemDto = {
+  name: string;
+  costUsd: number;
+};
+
+export type MetricsCostResponse = {
+  projectId: string;
+  totalCostUsd: number;
+  modelCostUsd: number;
+  toolCostUsd: number;
+  byModel: MetricsCostBreakdownItemDto[];
+  byTool: MetricsCostBreakdownItemDto[];
+  bySkill: MetricsCostBreakdownItemDto[];
+};
+
+export type MetricsQualityPointDto = {
+  suiteId: string;
+  passed: boolean;
+  score: number;
+  timestamp: string;
+};
+
+export type MetricsQualityResponse = {
+  projectId: string;
+  totalRuns: number;
+  passRate: number;
+  averageScore: number;
+  points: MetricsQualityPointDto[];
+};
+
+export type MetricsRuntimeResponse = {
+  projectId: string;
+  totalRuns: number;
+  successRate: number;
+  averageIterations: number;
+  averageApprovalWaitMs: number;
+  byStatus: {
+    completed: number;
+    failed: number;
+    cancelled: number;
+  };
+};
+
 export const API_ENDPOINTS = {
   health: "/api/v1/health",
   consoleDashboard: "/api/v1/console/dashboard",
@@ -354,6 +397,9 @@ export const API_ENDPOINTS = {
   disableTeamPlugin: (teamId: string, pluginId: string) =>
     `/api/v1/teams/${teamId}/plugins/${pluginId}/disable`,
   metricsSummary: "/api/v1/metrics/summary",
+  metricsCost: (projectId: string) => `/api/v1/metrics/cost?projectId=${encodeURIComponent(projectId)}`,
+  metricsQuality: (projectId: string) => `/api/v1/metrics/quality?projectId=${encodeURIComponent(projectId)}`,
+  metricsRuntime: (projectId: string) => `/api/v1/metrics/runtime?projectId=${encodeURIComponent(projectId)}`,
   runTrace: (taskId: string, runId: string) =>
     `/api/v1/tasks/${taskId}/runs/${runId}/trace`,
   runStream: (taskId: string, runId: string) =>
@@ -372,6 +418,7 @@ export const WEB_ROUTES = {
   approvals: "/approvals",
   releaseReadiness: (releaseId: string) => `/releases/${releaseId}`,
   runDetail: (taskId: string, runId: string) => `/tasks/${taskId}/runs/${runId}`,
+  metrics: "/metrics",
   policy: "/settings/policy",
   plugins: "/settings/plugins"
 } as const;

@@ -5,6 +5,7 @@ import {
   API_ENDPOINTS,
   WEB_ROUTES,
   type ConsoleDashboardResponse,
+  type MetricsCostResponse,
   type ProjectPolicyResponse,
   type ReleaseReadinessResponse,
   type TaskStatus
@@ -14,6 +15,7 @@ test("contracts expose stable frontend routes and api endpoints", () => {
   assert.equal(WEB_ROUTES.tasks, "/tasks");
   assert.equal(WEB_ROUTES.approvals, "/approvals");
   assert.equal(WEB_ROUTES.releaseReadiness(":releaseId"), "/releases/:releaseId");
+  assert.equal(WEB_ROUTES.metrics, "/metrics");
   assert.equal(API_ENDPOINTS.consoleDashboard, "/api/v1/console/dashboard");
   assert.equal(API_ENDPOINTS.health, "/api/v1/health");
   assert.equal(API_ENDPOINTS.releases, "/api/v1/releases");
@@ -26,6 +28,9 @@ test("contracts expose stable frontend routes and api endpoints", () => {
   assert.equal(API_ENDPOINTS.installTeamPlugin("team-platform", "review-pack"), "/api/v1/teams/team-platform/plugins/review-pack/install");
   assert.equal(API_ENDPOINTS.enableTeamPlugin("team-platform", "review-pack"), "/api/v1/teams/team-platform/plugins/review-pack/enable");
   assert.equal(API_ENDPOINTS.disableTeamPlugin("team-platform", "review-pack"), "/api/v1/teams/team-platform/plugins/review-pack/disable");
+  assert.equal(API_ENDPOINTS.metricsCost("project-harness"), "/api/v1/metrics/cost?projectId=project-harness");
+  assert.equal(API_ENDPOINTS.metricsQuality("project-harness"), "/api/v1/metrics/quality?projectId=project-harness");
+  assert.equal(API_ENDPOINTS.metricsRuntime("project-harness"), "/api/v1/metrics/runtime?projectId=project-harness");
 });
 
 test("ConsoleDashboardResponse models the F0 dashboard contract", () => {
@@ -122,4 +127,25 @@ test("ProjectPolicyResponse models the F6 policy contract", () => {
   assert.equal(response.project.teamId, "team-platform");
   assert.equal(response.policy.allowedTools.includes("read_file"), true);
   assert.equal(response.availableModels.includes("gpt-5"), true);
+});
+
+test("MetricsCostResponse models the F7 cost attribution contract", () => {
+  const response: MetricsCostResponse = {
+    projectId: "project-harness",
+    totalCostUsd: 4.25,
+    modelCostUsd: 3.75,
+    toolCostUsd: 0.5,
+    byModel: [
+      { name: "gpt-5-mini", costUsd: 2.5 }
+    ],
+    byTool: [
+      { name: "run_command", costUsd: 0.3 }
+    ],
+    bySkill: [
+      { name: "code-review", costUsd: 1.2 }
+    ]
+  };
+
+  assert.equal(response.projectId, "project-harness");
+  assert.equal(response.bySkill[0].name, "code-review");
 });
