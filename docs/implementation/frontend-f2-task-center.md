@@ -137,3 +137,28 @@
 
 - 第一版页面只有 HTML 表单，如果浏览器默认提交，将无法发送 JSON body 到 `POST /api/v1/tasks`。
 - 处理方式：在 `renderApp()` 挂载后绑定表单 submit 事件，使用 `FormData -> CreateTaskRequest -> client.createTask()` 的前端 API client 路径创建任务，再刷新列表。
+
+## F2 总体验收
+
+### 已完成范围
+
+- `/tasks` 页面：已接入共享 App Shell，并渲染 Task Center 内容。
+- 任务列表：展示任务目标、状态、审批数、Release Gate、成本和详情链接。
+- 状态筛选、搜索、排序：API、client、页面控件均已覆盖。
+- 新建任务：页面表单通过前端 API client 调用 `POST /api/v1/tasks`，创建后刷新列表。
+- 健康摘要：active tasks、waiting approval、release gates、cost today 已由 metrics/release summary 聚合展示。
+- 任务详情跳转：任务行提供 `/tasks/:taskId/runs/latest` 链接。
+- 状态视觉区分：`pending`、`running`、`waiting_approval`、`completed`、`failed` 均有明确展示语义。
+
+### 最终验证
+
+- `npm test`：115 个测试全部通过。
+- `npm run test:web`：17 个 web 测试全部通过。
+- `npm run test:e2e`：2 个端到端测试全部通过。
+- `npm run build:web`：通过。
+
+### 未完成或后续增强
+
+- 当前任务 store 是 API gateway 内的最小内存实现，后续应接入已有 `FileTaskService` 或持久化数据库，以支持跨进程任务历史。
+- 当前筛选/search/sort 的浏览器表单会生成 URL 查询参数；后续接入 Router 后应同步 URL state 和页面重载逻辑。
+- 当前任务详情链接先落到 `/tasks/:taskId/runs/latest`，F3 会实现真实 Run Detail 与 Trace Timeline 页面。
