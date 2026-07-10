@@ -50,6 +50,8 @@ test("approvals page renders queue, detail, risk and policy suggestions", () => 
   assert.match(html, /Command execution is risky/);
   assert.match(html, /npm test/);
   assert.match(html, /name="reason"/);
+  assert.match(html, /name="confirmedRisk"/);
+  assert.match(html, /required/);
   assert.match(html, /approval-run-command\/approve/);
   assert.match(html, /approval-run-command\/deny/);
   assert.match(html, /suggestion-allow-npm-test\/apply/);

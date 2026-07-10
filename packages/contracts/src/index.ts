@@ -217,6 +217,7 @@ export type ApprovalQueueResponse = {
 
 export type ApprovalActionRequest = {
   reason?: string;
+  confirmedRisk?: boolean;
 };
 
 export type ApprovalActionResponse = {

@@ -5,6 +5,7 @@ import { renderAppHtml } from "../../apps/web/src/app/render.js";
 import type {
   PolicySimulationResponse,
   ProjectPolicyResponse,
+  SessionResponse,
   TeamPluginsResponse
 } from "../../packages/contracts/src/index.js";
 
@@ -26,6 +27,21 @@ test("policy settings page renders allowlists and simulator actions", () => {
   assert.match(html, /data-policy-action="update"/);
   assert.match(html, /data-policy-action="simulate"/);
   assert.match(html, /Tool run_command is not allowed/);
+});
+
+test("policy settings page renders readonly controls for non-admin roles", () => {
+  const html = renderAppHtml({
+    state: "ready",
+    pathname: "/settings/policy",
+    session: viewerSession(),
+    policySettings: {
+      policy: projectPolicy()
+    }
+  });
+
+  assert.match(html, /Admin role required to modify project policy/);
+  assert.match(html, /name="allowedTools" value="read_file" checked disabled/);
+  assert.match(html, /<button type="submit" disabled>Save policy<\/button>/);
 });
 
 test("plugins settings page renders plugin states, actions and shared skills", () => {
@@ -58,6 +74,21 @@ function projectPolicy(): ProjectPolicyResponse {
     },
     availableTools: ["read_file", "search_text", "run_command"],
     availableModels: ["gpt-5", "gpt-5-mini"]
+  };
+}
+
+function viewerSession(): SessionResponse {
+  return {
+    user: {
+      id: "user-viewer",
+      name: "Harness Viewer",
+      role: "viewer"
+    },
+    permissions: {
+      canEditPolicy: false,
+      canApproveDangerous: false,
+      canManagePlugins: false
+    }
   };
 }
 

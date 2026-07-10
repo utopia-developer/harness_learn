@@ -269,6 +269,53 @@ test("frontend renders governance settings and updates policy and plugins", asyn
   assert.match(pluginsHtml, /deep-research/);
 });
 
+test("frontend e2e denies project policy updates for viewer sessions", async () => {
+  const viewerClient = createApiClient({
+    baseUrl: "http://harness.local",
+    session: {
+      userId: "user-viewer",
+      role: "viewer"
+    },
+    fetch: async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const response = await handleApiRequest({
+        method: init?.method ?? "GET",
+        url,
+        headers: Object.fromEntries(new Headers(init?.headers).entries()),
+        body: init?.body ? JSON.parse(String(init.body)) : undefined
+      });
+
+      return new Response(JSON.stringify(response.body), {
+        status: response.statusCode,
+        headers: response.headers
+      });
+    }
+  });
+
+  await assert.rejects(
+    () => viewerClient.updateProjectPolicy("project-harness", {
+      allowedTools: ["run_command"],
+      allowedModels: ["gpt-5"]
+    }),
+    /403/
+  );
+
+  const session = await viewerClient.getSession();
+  const policy = await viewerClient.getProjectPolicy("project-harness");
+  const html = renderAppHtml({
+    state: "ready",
+    pathname: "/settings/policy",
+    session,
+    policySettings: {
+      policy
+    }
+  });
+
+  assert.equal(session.permissions.canEditPolicy, false);
+  assert.match(html, /Admin role required to modify project policy/);
+  assert.match(html, /<button type="submit" disabled>Save policy<\/button>/);
+});
+
 test("frontend renders metrics dashboard from cost, quality and runtime APIs", async () => {
   const client = createApiClient({
     baseUrl: "http://harness.local",

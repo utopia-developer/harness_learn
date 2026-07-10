@@ -68,3 +68,39 @@ F8 closes the frontend product loop for production hardening:
 ### Issues Encountered
 
 - The first web red test failed because `ApiClientOptions.session`, `getSession()`, `recordFrontendAudit()`, and the session view-model module did not exist. This confirmed the intended web integration surface before implementation.
+
+## Feature 3: Page-Level Hardening, Confirmation, Accessibility and Budgets
+
+### What Changed
+
+- Threaded `SessionResponse` into `renderAppHtml()` and relevant runtime routes.
+- Added role badges in the shell when a session is present.
+- Rendered project policy controls as readonly for non-admin users:
+  - Policy checkboxes are disabled.
+  - Save action is disabled.
+  - A role restriction message is shown.
+- Rendered plugin action buttons as disabled for non-admin users.
+- Added required explicit confirmation for high-risk approval actions.
+- Added frontend audit events for approval, policy, plugin and policy simulation form submissions.
+- Generalized the API error boundary title to page-level data loading failure.
+- Extended `ApprovalActionRequest` with `confirmedRisk` so UI confirmation is preserved in the request payload.
+- Added a large Trace render budget test.
+- Added E2E coverage for viewer sessions being denied by the real API path.
+
+### Design Notes
+
+- UI-level disabling improves operator clarity, while API-level RBAC remains the source of truth.
+- High-risk approvals require an explicit checkbox only on the approve path. Deny remains available without confirmation because it does not execute the risky operation.
+- Audit recording is performed before mutations so operator intent is captured with route and target context.
+- The large Trace budget is intentionally checked in Node render tests because the current project does not include Playwright. It still guards the template from accidental unbounded output growth.
+
+### Verification
+
+- `npm run test:web`
+  - Result: 41 tests passed.
+- `npm run test:e2e`
+  - Result: 8 tests passed.
+
+### Issues Encountered
+
+- The first performance-budget assertion expected raw event ids in the HTML, but the page renders event titles rather than ids. The assertion was corrected to validate visible event content instead of an implementation detail.

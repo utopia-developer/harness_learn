@@ -33,6 +33,7 @@ test("rendered app html exposes loading and error states accessibly", () => {
 
   assert.match(loading, /aria-live="polite"/);
   assert.match(error, /role="alert"/);
+  assert.match(error, /无法加载页面数据/);
   assert.match(error, /API unavailable/);
 });
 

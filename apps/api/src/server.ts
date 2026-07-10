@@ -370,7 +370,10 @@ function parseApprovalActionRequest(body: unknown): ApprovalActionRequest {
     return {};
   }
   const input = body as Record<string, unknown>;
-  return typeof input.reason === "string" ? { reason: input.reason } : {};
+  return {
+    ...(typeof input.reason === "string" ? { reason: input.reason } : {}),
+    ...(typeof input.confirmedRisk === "boolean" ? { confirmedRisk: input.confirmedRisk } : {})
+  };
 }
 
 function parseFrontendAuditEventRequest(body: unknown): FrontendAuditEventRequest {

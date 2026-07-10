@@ -12,6 +12,7 @@ import type {
   ReleaseReadinessResponse,
   ReleaseSummaryResponse,
   RunTraceResponse,
+  SessionResponse,
   TeamPluginsResponse,
   TaskStatus
 } from "../../../../packages/contracts/src/index.js";
@@ -25,6 +26,7 @@ import { createDashboardViewModel } from "../features/console/dashboard-view-mod
 import { createMetricsViewModel } from "../features/metrics/metrics-view-model.js";
 import { createReleaseReadinessViewModel } from "../features/releases/release-readiness-view-model.js";
 import { createRunDetailViewModel } from "../features/runs/run-detail-view-model.js";
+import { createSessionViewModel } from "../features/security/session-view-model.js";
 import { createPluginsViewModel } from "../features/settings/plugins-view-model.js";
 import { createPolicyViewModel } from "../features/settings/policy-view-model.js";
 import { createTaskRequestFromFormData } from "../features/tasks/task-create-form.js";
@@ -43,10 +45,14 @@ export async function renderApp(root: HTMLElement, client: ApiClient): Promise<v
 
   try {
     if (pathname.startsWith("/approvals")) {
-      const approvalQueue = await client.listApprovals({ status: "pending" });
+      const [session, approvalQueue] = await Promise.all([
+        client.getSession(),
+        client.listApprovals({ status: "pending" })
+      ]);
       root.innerHTML = renderAppHtml({
         state: "ready",
         pathname,
+        session,
         approvalQueue
       });
       bindApprovalForms(root, client, pathname);
@@ -69,10 +75,14 @@ export async function renderApp(root: HTMLElement, client: ApiClient): Promise<v
     }
 
     if (pathname.startsWith("/settings/policy")) {
-      const policy = await client.getProjectPolicy(defaultProjectId);
+      const [session, policy] = await Promise.all([
+        client.getSession(),
+        client.getProjectPolicy(defaultProjectId)
+      ]);
       root.innerHTML = renderAppHtml({
         state: "ready",
         pathname,
+        session,
         policySettings: {
           policy
         }
@@ -82,10 +92,14 @@ export async function renderApp(root: HTMLElement, client: ApiClient): Promise<v
     }
 
     if (pathname.startsWith("/settings/plugins")) {
-      const pluginsSettings = await client.listTeamPlugins(defaultTeamId);
+      const [session, pluginsSettings] = await Promise.all([
+        client.getSession(),
+        client.listTeamPlugins(defaultTeamId)
+      ]);
       root.innerHTML = renderAppHtml({
         state: "ready",
         pathname,
+        session,
         pluginsSettings
       });
       bindPluginForms(root, client, pathname);
@@ -200,6 +214,7 @@ export type RenderAppHtmlInput = {
     releases: ListReleasesResponse;
     readiness: ReleaseReadinessResponse;
   };
+  session?: SessionResponse;
   policySettings?: {
     policy: ProjectPolicyResponse;
     simulation?: PolicySimulationResponse;
@@ -215,6 +230,7 @@ export type RenderAppHtmlInput = {
 
 export function renderAppHtml(input: RenderAppHtmlInput): string {
   const shell = createAppShellViewModel(input.pathname);
+  const session = input.session ? createSessionViewModel(input.session) : undefined;
   const viewModel = input.dashboard
     ? createDashboardViewModel(input.dashboard)
     : undefined;
@@ -235,6 +251,7 @@ export function renderAppHtml(input: RenderAppHtmlInput): string {
             <p class="page-context">${escapeHtml(shell.topbar.title)} · ${escapeHtml(shell.topbar.description)}</p>
           </div>
           <span class="status-pill">${stateLabel(input.state)}</span>
+          ${session ? `<span class="status-pill">${escapeHtml(session.roleBadge.label)}</span>` : ""}
         </header>
         ${renderContent(input.state, {
           dashboard: viewModel,
@@ -242,6 +259,7 @@ export function renderAppHtml(input: RenderAppHtmlInput): string {
           runDetail: input.runDetail,
           approvalQueue: input.approvalQueue,
           releaseReadiness: input.releaseReadiness,
+          session: input.session,
           policySettings: input.policySettings,
           pluginsSettings: input.pluginsSettings,
           metrics: input.metrics,
@@ -260,6 +278,7 @@ function renderContent(
     runDetail?: NonNullable<RenderAppHtmlInput["runDetail"]>;
     approvalQueue?: ApprovalQueueResponse;
     releaseReadiness?: NonNullable<RenderAppHtmlInput["releaseReadiness"]>;
+    session?: SessionResponse;
     policySettings?: NonNullable<RenderAppHtmlInput["policySettings"]>;
     pluginsSettings?: TeamPluginsResponse;
     metrics?: NonNullable<RenderAppHtmlInput["metrics"]>;
@@ -274,7 +293,7 @@ function renderContent(
   if (state === "error") {
     return `
       <section class="panel error-panel" role="alert">
-        <h2>无法加载 Console Dashboard</h2>
+        <h2>无法加载页面数据</h2>
         <p>${escapeHtml(content.error instanceof Error ? content.error.message : String(content.error))}</p>
       </section>
     `;
@@ -297,11 +316,11 @@ function renderContent(
   }
 
   if (content.policySettings) {
-    return renderPolicySettingsContent(content.policySettings);
+    return renderPolicySettingsContent(content.policySettings, content.session);
   }
 
   if (content.pluginsSettings) {
-    return renderPluginsSettingsContent(content.pluginsSettings);
+    return renderPluginsSettingsContent(content.pluginsSettings, content.session);
   }
 
   if (content.metrics) {
@@ -357,21 +376,35 @@ function bindPolicyForms(root: HTMLElement, client: ApiClient, pathname: string)
         let simulation: PolicySimulationResponse | undefined;
 
         if (action === "update") {
+          await client.recordFrontendAudit({
+            action: "policy.update.submitted",
+            target: defaultProjectId,
+            route: pathname
+          });
           await client.updateProjectPolicy(defaultProjectId, {
             allowedTools: formData.getAll("allowedTools").map(String),
             allowedModels: formData.getAll("allowedModels").map(String)
           });
         } else if (action === "simulate") {
+          await client.recordFrontendAudit({
+            action: "policy.simulate.submitted",
+            target: defaultProjectId,
+            route: pathname
+          });
           simulation = await client.simulateProjectPolicy(defaultProjectId, {
             tool: String(formData.get("tool") ?? ""),
             model: String(formData.get("model") ?? "")
           });
         }
 
-        const policy = await client.getProjectPolicy(defaultProjectId);
+        const [session, policy] = await Promise.all([
+          client.getSession(),
+          client.getProjectPolicy(defaultProjectId)
+        ]);
         root.innerHTML = renderAppHtml({
           state: "ready",
           pathname,
+          session,
           policySettings: {
             policy,
             simulation
@@ -391,6 +424,12 @@ function bindPluginForms(root: HTMLElement, client: ApiClient, pathname: string)
         const pluginId = form.dataset.pluginId ?? "";
         const action = form.dataset.pluginAction;
 
+        await client.recordFrontendAudit({
+          action: `plugin.${action ?? "unknown"}.submitted`,
+          target: pluginId,
+          route: pathname
+        });
+
         if (action === "install") {
           await client.installTeamPlugin(defaultTeamId, pluginId);
         } else if (action === "enable") {
@@ -399,10 +438,14 @@ function bindPluginForms(root: HTMLElement, client: ApiClient, pathname: string)
           await client.disableTeamPlugin(defaultTeamId, pluginId);
         }
 
-        const pluginsSettings = await client.listTeamPlugins(defaultTeamId);
+        const [session, pluginsSettings] = await Promise.all([
+          client.getSession(),
+          client.listTeamPlugins(defaultTeamId)
+        ]);
         root.innerHTML = renderAppHtml({
           state: "ready",
           pathname,
+          session,
           pluginsSettings
         });
         bindPluginForms(root, client, pathname);
@@ -444,20 +487,35 @@ function bindApprovalForms(root: HTMLElement, client: ApiClient, pathname: strin
         const action = form.dataset.approvalAction;
         const approvalId = form.dataset.approvalId ?? "";
         const suggestionId = form.dataset.suggestionId ?? "";
-        const reason = String(new FormData(form).get("reason") ?? "");
+        const formData = new FormData(form);
+        const reason = String(formData.get("reason") ?? "");
+        const confirmedRisk = formData.get("confirmedRisk") === "yes";
+
+        await client.recordFrontendAudit({
+          action: `approval.${action ?? "unknown"}.submitted`,
+          target: approvalId || suggestionId,
+          route: pathname,
+          metadata: {
+            confirmedRisk
+          }
+        });
 
         if (action === "approve") {
-          await client.approveApproval(approvalId, { reason });
+          await client.approveApproval(approvalId, { reason, confirmedRisk });
         } else if (action === "deny") {
           await client.denyApproval(approvalId, { reason });
         } else if (action === "apply-suggestion") {
           await client.applyPolicySuggestion(suggestionId);
         }
 
-        const approvalQueue = await client.listApprovals({ status: "pending" });
+        const [session, approvalQueue] = await Promise.all([
+          client.getSession(),
+          client.listApprovals({ status: "pending" })
+        ]);
         root.innerHTML = renderAppHtml({
           state: "ready",
           pathname,
+          session,
           approvalQueue
         });
         bindApprovalForms(root, client, pathname);
@@ -667,6 +725,12 @@ function renderApprovalQueueContent(approvalQueue: ApprovalQueueResponse): strin
                 处理原因
                 <input name="reason" value="Reviewed" />
               </label>
+              ${viewModel.selectedApproval.risk.level === "high" ? `
+                <label class="confirm-option">
+                  <input type="checkbox" name="confirmedRisk" value="yes" required />
+                  Confirm high risk approval
+                </label>
+              ` : ""}
               <button type="submit">${escapeHtml(viewModel.selectedApproval.approveAction.label)}</button>
             </form>
             <form method="post" action="/api/v1/approvals/${viewModel.selectedApproval.id}/deny" data-approval-action="deny" data-approval-id="${viewModel.selectedApproval.id}">
@@ -783,9 +847,12 @@ function renderReleaseReadinessContent(
 }
 
 function renderPolicySettingsContent(
-  policySettings: NonNullable<RenderAppHtmlInput["policySettings"]>
+  policySettings: NonNullable<RenderAppHtmlInput["policySettings"]>,
+  session?: SessionResponse
 ): string {
   const viewModel = createPolicyViewModel(policySettings);
+  const sessionView = createSessionViewModel(session ?? defaultAdminSession());
+  const readonlyAttr = sessionView.canEditPolicy ? "" : " disabled";
 
   return `
     <section class="metrics-grid">
@@ -797,13 +864,16 @@ function renderPolicySettingsContent(
       <div class="panel settings-panel">
         <h2>Team Policy</h2>
         <p>${escapeHtml(viewModel.projectName)} · ${escapeHtml(viewModel.teamId)}</p>
+        ${sessionView.policyReadonlyMessage ? `
+          <p id="policy-rbac-note" class="readonly-note">${escapeHtml(sessionView.policyReadonlyMessage)}</p>
+        ` : ""}
         <form method="post" action="${escapeHtml(viewModel.updateAction)}" data-policy-action="update">
           <section class="settings-option-group">
             <h3>工具白名单</h3>
             <div class="settings-options">
               ${viewModel.tools.map((tool) => `
                 <label class="check-option">
-                  <input type="checkbox" name="allowedTools" value="${escapeHtml(tool.name)}"${tool.allowed ? " checked" : ""} />
+                  <input type="checkbox" name="allowedTools" value="${escapeHtml(tool.name)}"${tool.allowed ? " checked" : ""}${readonlyAttr} />
                   <span>${escapeHtml(tool.name)}</span>
                 </label>
               `).join("")}
@@ -814,13 +884,13 @@ function renderPolicySettingsContent(
             <div class="settings-options">
               ${viewModel.models.map((model) => `
                 <label class="check-option">
-                  <input type="checkbox" name="allowedModels" value="${escapeHtml(model.name)}"${model.allowed ? " checked" : ""} />
+                  <input type="checkbox" name="allowedModels" value="${escapeHtml(model.name)}"${model.allowed ? " checked" : ""}${readonlyAttr} />
                   <span>${escapeHtml(model.name)}</span>
                 </label>
               `).join("")}
             </div>
           </section>
-          <button type="submit">Save policy</button>
+          <button type="submit"${readonlyAttr}>Save policy</button>
         </form>
       </div>
       <aside class="panel settings-panel" aria-label="策略模拟器">
@@ -859,8 +929,12 @@ function renderPolicySettingsContent(
   `;
 }
 
-function renderPluginsSettingsContent(pluginsSettings: TeamPluginsResponse): string {
+function renderPluginsSettingsContent(
+  pluginsSettings: TeamPluginsResponse,
+  session?: SessionResponse
+): string {
   const viewModel = createPluginsViewModel(pluginsSettings);
+  const sessionView = createSessionViewModel(session ?? defaultAdminSession());
 
   return `
     <section class="metrics-grid">
@@ -871,6 +945,9 @@ function renderPluginsSettingsContent(pluginsSettings: TeamPluginsResponse): str
     <section class="settings-layout">
       <div class="panel settings-panel">
         <h2>Plugin Registry</h2>
+        ${sessionView.pluginReadonlyMessage ? `
+          <p class="readonly-note">${escapeHtml(sessionView.pluginReadonlyMessage)}</p>
+        ` : ""}
         <div class="plugin-list">
           ${viewModel.plugins.map((plugin) => `
             <article class="plugin-card">
@@ -886,7 +963,7 @@ function renderPluginsSettingsContent(pluginsSettings: TeamPluginsResponse): str
                 <dd>${plugin.skills.map(escapeHtml).join(", ")}</dd>
               </dl>
               <form method="post" action="${escapeHtml(plugin.primaryAction.action)}" data-plugin-action="${escapeHtml(plugin.primaryAction.actionKind)}" data-plugin-id="${escapeHtml(plugin.id)}">
-                <button type="submit">${escapeHtml(plugin.primaryAction.label)}</button>
+                <button type="submit"${sessionView.canManagePlugins ? "" : " disabled"}>${escapeHtml(plugin.primaryAction.label)}</button>
               </form>
             </article>
           `).join("")}
@@ -902,6 +979,21 @@ function renderPluginsSettingsContent(pluginsSettings: TeamPluginsResponse): str
       </aside>
     </section>
   `;
+}
+
+function defaultAdminSession(): SessionResponse {
+  return {
+    user: {
+      id: "user-demo",
+      name: "Harness Admin",
+      role: "admin"
+    },
+    permissions: {
+      canEditPolicy: true,
+      canApproveDangerous: true,
+      canManagePlugins: true
+    }
+  };
 }
 
 function renderMetricsContent(metrics: NonNullable<RenderAppHtmlInput["metrics"]>): string {
