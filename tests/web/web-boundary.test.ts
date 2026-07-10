@@ -9,6 +9,7 @@ test("web navigation uses product routes from contracts", () => {
   assert.deepEqual(WEB_NAVIGATION.map((item: { href: string }) => item.href), [
     "/tasks",
     "/approvals",
+    "/releases/current",
     "/settings/policy",
     "/settings/plugins"
   ]);
