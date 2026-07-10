@@ -201,6 +201,131 @@ h2 {
   grid-template-columns: minmax(0, 0.9fr) minmax(340px, 1.1fr);
 }
 
+.release-layout {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 0.9fr) minmax(380px, 1.1fr);
+}
+
+.release-list {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.release-list-item {
+  align-items: start;
+  border: 1px solid #d7dfda;
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.release-list-item.is-selected {
+  background: #f4f8ff;
+  border-color: #9bbcf7;
+}
+
+.release-list-item span {
+  color: #5b6c65;
+  display: block;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.release-detail {
+  display: grid;
+  gap: 16px;
+}
+
+.release-detail-header {
+  align-items: start;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.release-detail-header p {
+  color: #5b6c65;
+  margin-bottom: 0;
+}
+
+.release-meta {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  margin: 0;
+}
+
+.release-meta dt {
+  color: #5b6c65;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.release-meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.release-checks,
+.blocker-list,
+.evidence-table {
+  display: grid;
+  gap: 10px;
+}
+
+.check-row {
+  align-items: start;
+  border: 1px solid #d7dfda;
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.check-row p {
+  color: #5b6c65;
+  margin: 4px 0 0;
+}
+
+.check-danger {
+  background: #fff7f6;
+  border-color: #dca8a8;
+}
+
+.check-success {
+  background: #f4fbf6;
+  border-color: #abd7bb;
+}
+
+.evidence-table table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.evidence-table caption {
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+}
+
+.evidence-table th,
+.evidence-table td {
+  border-top: 1px solid #edf1ee;
+  padding: 10px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
 .approval-list {
   display: grid;
   gap: 10px;
@@ -529,7 +654,12 @@ button {
   }
 
   .approval-layout,
+  .release-layout,
   .approval-actions {
     grid-template-columns: 1fr;
+  }
+
+  .release-detail-header {
+    flex-direction: column;
   }
 }

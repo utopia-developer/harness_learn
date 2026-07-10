@@ -90,3 +90,47 @@
 
 - F5 扩展 `ApiClient` 后，mock client 必须同步补齐 release 方法，否则 `createMockApiClient()` 不满足接口。
 - 处理方式：mock 数据复用真实契约 DTO，避免真实 API 与 mock API 漂移。
+
+## 功能点 3：Release Readiness 页面渲染、Run Gate 与 e2e
+
+### 目标
+
+- `/releases` 和 `/releases/:releaseId` 页面实际渲染发布就绪数据。
+- 页面展示发布列表、ready / blocked 状态、Gate checks、blocked 原因、Evidence table 和 Audit JSONL 导出入口。
+- Run gate 表单通过前端 API client 调用真实 API，并刷新 readiness。
+- e2e 验证 release readiness 页面不是孤立 UI。
+
+### 实现
+
+- 更新 `apps/web/src/app/render.ts`。
+  - `renderApp()` 在 `/releases` 路径下调用 `client.listReleases()`。
+  - `/releases/:releaseId` 调用 `client.getReleaseReadiness(releaseId)`。
+  - `/releases` 默认选中列表第一条 release。
+  - `renderAppHtml()` 支持 `releaseReadiness` 输入。
+  - 新增 Release Readiness 页面内容渲染：
+    - release 指标。
+    - 发布列表。
+    - release 详情。
+    - gate checks。
+    - blocked reasons。
+    - evidence table。
+    - Audit JSONL 链接。
+    - Run gate 表单。
+  - 新增 `bindReleaseForms()`，Run gate 后刷新发布列表和 readiness。
+- 更新 `apps/web/src/styles.css`。
+  - 增加 release 布局、发布列表、详情、checks 和 evidence table 样式。
+
+### 测试验证
+
+- 新增 `tests/web/release-render.test.ts`。
+  - 覆盖发布列表、blocked 状态、checks、blockers、evidence、Audit JSONL 和 Run gate 表单。
+- 更新 `tests/e2e/frontend-api.e2e.test.ts`。
+  - e2e 验证 release list、readiness、run gate、audit JSONL 和页面渲染。
+- 验证命令：
+  - `npm run test:web`：29 个 web 测试全部通过。
+  - `npm run test:e2e`：5 个端到端测试全部通过。
+
+### 问题记录
+
+- `/releases` 没有明确 releaseId 时需要避免空白页。
+- 处理方式：先拉取 release list，若路径未指定 releaseId，则默认展示列表第一条 release 的 readiness。

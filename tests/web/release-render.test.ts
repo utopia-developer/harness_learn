@@ -1,0 +1,81 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import { renderAppHtml } from "../../apps/web/src/app/render.js";
+import type {
+  ListReleasesResponse,
+  ReleaseReadinessResponse
+} from "../../packages/contracts/src/index.js";
+
+test("release readiness page renders list, checks, blockers and evidence actions", () => {
+  const html = renderAppHtml({
+    state: "ready",
+    pathname: "/releases/release-console-dogfood",
+    releaseReadiness: {
+      releases: releaseList(),
+      readiness: releaseReadiness()
+    }
+  });
+
+  assert.match(html, /Release Readiness/);
+  assert.match(html, /Harness Console Dogfood/);
+  assert.match(html, /Runtime Baseline/);
+  assert.match(html, /Blocked/);
+  assert.match(html, /Replay Eval/);
+  assert.match(html, /case-console-approval: Output changed/);
+  assert.match(html, /2 audit events/);
+  assert.match(html, /trace-f3-demo/);
+  assert.match(html, /release-console-dogfood\/audit\.jsonl/);
+  assert.match(html, /data-release-action="run-gate"/);
+});
+
+function releaseList(): ListReleasesResponse {
+  return {
+    releases: [
+      releaseReadiness().release,
+      {
+        id: "release-runtime-baseline",
+        projectId: "project-harness",
+        version: "2026.07.09-runtime",
+        title: "Runtime Baseline",
+        status: "ready",
+        generatedAt: "2026-07-09T00:02:00.000Z"
+      }
+    ],
+    total: 2
+  };
+}
+
+function releaseReadiness(): ReleaseReadinessResponse {
+  return {
+    release: {
+      id: "release-console-dogfood",
+      projectId: "project-harness",
+      version: "2026.07.10-console",
+      title: "Harness Console Dogfood",
+      status: "blocked",
+      generatedAt: "2026-07-10T00:02:00.000Z"
+    },
+    summary: "Release release-console-dogfood is blocked for project project-harness",
+    checks: [
+      {
+        name: "eval",
+        label: "Replay Eval",
+        passed: false,
+        detail: "case-console-approval: Output changed"
+      },
+      {
+        name: "cost",
+        label: "Cost Budget",
+        passed: true,
+        detail: "Cost 2.1 within budget 5"
+      }
+    ],
+    blockers: ["eval: case-console-approval: Output changed"],
+    evidence: {
+      auditEventCount: 2,
+      auditJsonlHref: "/api/v1/releases/release-console-dogfood/audit.jsonl",
+      traceIds: ["trace-f3-demo", "trace-f4-approval"]
+    }
+  };
+}

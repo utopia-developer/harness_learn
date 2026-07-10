@@ -1,8 +1,10 @@
 import type { ConsoleDashboardResponse } from "../../../../packages/contracts/src/index.js";
 import type {
   ApprovalQueueResponse,
+  ListReleasesResponse,
   ListTasksResponse,
   MetricsSummaryResponse,
+  ReleaseReadinessResponse,
   ReleaseSummaryResponse,
   RunTraceResponse,
   TaskStatus
@@ -14,6 +16,7 @@ import {
 import type { ApiClient } from "../shared/api/client.js";
 import { createApprovalQueueViewModel } from "../features/approvals/approval-queue-view-model.js";
 import { createDashboardViewModel } from "../features/console/dashboard-view-model.js";
+import { createReleaseReadinessViewModel } from "../features/releases/release-readiness-view-model.js";
 import { createRunDetailViewModel } from "../features/runs/run-detail-view-model.js";
 import { createTaskRequestFromFormData } from "../features/tasks/task-create-form.js";
 import { createTaskCenterViewModel } from "../features/tasks/task-center-view-model.js";
@@ -35,6 +38,21 @@ export async function renderApp(root: HTMLElement, client: ApiClient): Promise<v
         approvalQueue
       });
       bindApprovalForms(root, client, pathname);
+      return;
+    }
+
+    if (pathname.startsWith("/releases")) {
+      const releases = await client.listReleases();
+      const releaseId = parseReleasePath(pathname) ?? releases.releases[0]?.id;
+      const readiness = releaseId
+        ? await client.getReleaseReadiness(releaseId)
+        : undefined;
+      root.innerHTML = renderAppHtml({
+        state: "ready",
+        pathname,
+        releaseReadiness: readiness ? { releases, readiness } : undefined
+      });
+      bindReleaseForms(root, client, pathname);
       return;
     }
 
@@ -124,6 +142,10 @@ export type RenderAppHtmlInput = {
     selectedEventId?: string;
   };
   approvalQueue?: ApprovalQueueResponse;
+  releaseReadiness?: {
+    releases: ListReleasesResponse;
+    readiness: ReleaseReadinessResponse;
+  };
   error?: unknown;
 };
 
@@ -155,6 +177,7 @@ export function renderAppHtml(input: RenderAppHtmlInput): string {
           taskCenter: input.taskCenter,
           runDetail: input.runDetail,
           approvalQueue: input.approvalQueue,
+          releaseReadiness: input.releaseReadiness,
           error: input.error
         })}
       </main>
@@ -169,6 +192,7 @@ function renderContent(
     taskCenter?: NonNullable<RenderAppHtmlInput["taskCenter"]>;
     runDetail?: NonNullable<RenderAppHtmlInput["runDetail"]>;
     approvalQueue?: ApprovalQueueResponse;
+    releaseReadiness?: NonNullable<RenderAppHtmlInput["releaseReadiness"]>;
     error?: unknown;
   }
 ): string {
@@ -196,6 +220,10 @@ function renderContent(
 
   if (content.approvalQueue) {
     return renderApprovalQueueContent(content.approvalQueue);
+  }
+
+  if (content.releaseReadiness) {
+    return renderReleaseReadinessContent(content.releaseReadiness);
   }
 
   if (!content.dashboard) {
@@ -235,6 +263,31 @@ function renderContent(
       `).join("")}
     </section>
   `;
+}
+
+function bindReleaseForms(root: HTMLElement, client: ApiClient, pathname: string): void {
+  root.querySelectorAll<HTMLFormElement>("[data-release-action]").forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void (async () => {
+        const releaseId = form.dataset.releaseId ?? "";
+        await client.runReleaseGate(releaseId);
+        const [releases, readiness] = await Promise.all([
+          client.listReleases(),
+          client.getReleaseReadiness(releaseId)
+        ]);
+        root.innerHTML = renderAppHtml({
+          state: "ready",
+          pathname,
+          releaseReadiness: {
+            releases,
+            readiness
+          }
+        });
+        bindReleaseForms(root, client, pathname);
+      })();
+    });
+  });
 }
 
 function bindApprovalForms(root: HTMLElement, client: ApiClient, pathname: string): void {
@@ -496,6 +549,93 @@ function renderApprovalQueueContent(approvalQueue: ApprovalQueueResponse): strin
   `;
 }
 
+function renderReleaseReadinessContent(
+  releaseReadiness: NonNullable<RenderAppHtmlInput["releaseReadiness"]>
+): string {
+  const viewModel = createReleaseReadinessViewModel(releaseReadiness);
+
+  return `
+    <section class="metrics-grid">
+      <article><span>Releases</span><strong>${viewModel.summary.totalReleases}</strong></article>
+      <article><span>Ready</span><strong>${viewModel.summary.readyCount}</strong></article>
+      <article><span>Blocked</span><strong>${viewModel.summary.blockedCount}</strong></article>
+    </section>
+    <section class="release-layout">
+      <div class="panel">
+        <h2>Release Readiness</h2>
+        <ul class="release-list">
+          ${viewModel.releases.map((release) => `
+            <li class="release-list-item${release.selected ? " is-selected" : ""}">
+              <div>
+                <a href="${release.href}"><strong>${escapeHtml(release.title)}</strong></a>
+                <span>${escapeHtml(release.version)} · ${escapeHtml(release.generatedAt)}</span>
+              </div>
+              <span class="badge badge-${escapeHtml(release.status.tone)}">${escapeHtml(release.status.label)}</span>
+            </li>
+          `).join("")}
+        </ul>
+      </div>
+      <aside class="panel release-detail" aria-label="发布就绪详情">
+        <div class="release-detail-header">
+          <div>
+            <h2>${escapeHtml(viewModel.selected.title)}</h2>
+            <p>${escapeHtml(viewModel.selected.summary)}</p>
+          </div>
+          <span class="badge badge-${escapeHtml(viewModel.selected.status.tone)}">${escapeHtml(viewModel.selected.status.label)}</span>
+        </div>
+        <dl class="release-meta">
+          <dt>Release</dt>
+          <dd>${escapeHtml(viewModel.selected.releaseId)}</dd>
+          <dt>Project</dt>
+          <dd>${escapeHtml(viewModel.selected.projectId)}</dd>
+          <dt>Version</dt>
+          <dd>${escapeHtml(viewModel.selected.version)}</dd>
+        </dl>
+        <form method="post" action="${escapeHtml(viewModel.selected.gateAction.action)}" data-release-action="run-gate" data-release-id="${escapeHtml(viewModel.selected.releaseId)}">
+          <button type="submit">${escapeHtml(viewModel.selected.gateAction.label)}</button>
+        </form>
+        <section class="release-checks">
+          <h3>Gate checks</h3>
+          ${viewModel.selected.checks.map((check) => `
+            <article class="check-row check-${escapeHtml(check.status.tone)}">
+              <div>
+                <strong>${escapeHtml(check.label)}</strong>
+                <p>${escapeHtml(check.detail)}</p>
+              </div>
+              <span class="badge badge-${escapeHtml(check.status.tone)}">${escapeHtml(check.status.label)}</span>
+            </article>
+          `).join("")}
+        </section>
+        <section class="blocker-list">
+          <h3>Blocked reasons</h3>
+          ${viewModel.selected.blockers.length > 0
+            ? `<ul>${viewModel.selected.blockers.map((blocker) =>
+              `<li>${escapeHtml(blocker)}</li>`
+            ).join("")}</ul>`
+            : "<p>No blockers</p>"}
+        </section>
+        <section class="evidence-table">
+          <h3>Evidence</h3>
+          <table>
+            <caption>Release evidence</caption>
+            <tbody>
+              <tr>
+                <th scope="row">Audit</th>
+                <td>${escapeHtml(viewModel.selected.evidence.auditEventCountLabel)}</td>
+                <td><a href="${escapeHtml(viewModel.selected.evidence.auditDownloadHref)}">Audit JSONL</a></td>
+              </tr>
+              <tr>
+                <th scope="row">Traces</th>
+                <td colspan="2">${viewModel.selected.evidence.traceIds.map(escapeHtml).join(", ")}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      </aside>
+    </section>
+  `;
+}
+
 function renderStatusOptions(current: TaskStatus | "all"): string {
   const options: Array<{ value: TaskStatus | "all"; label: string }> = [
     { value: "all", label: "全部" },
@@ -531,6 +671,11 @@ function parseRunPath(pathname: string): { taskId: string; runId: string } | und
     taskId: decodeURIComponent(match[1]),
     runId: decodeURIComponent(match[2])
   };
+}
+
+function parseReleasePath(pathname: string): string | undefined {
+  const match = pathname.match(/^\/releases\/([^/]+)$/);
+  return match ? decodeURIComponent(match[1]) : undefined;
 }
 
 function stateLabel(state: RenderState): string {

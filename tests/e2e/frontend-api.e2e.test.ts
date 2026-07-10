@@ -167,3 +167,48 @@ test("frontend renders approval queue and updates it after approval actions", as
   assert.equal(before.total, 2);
   assert.equal(after.total, 0);
 });
+
+test("frontend renders release readiness and exports audit evidence", async () => {
+  const client = createApiClient({
+    baseUrl: "http://harness.local",
+    fetch: async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const response = await handleApiRequest({
+        method: init?.method ?? "GET",
+        url,
+        body: init?.body ? JSON.parse(String(init.body)) : undefined
+      });
+
+      return new Response(
+        typeof response.body === "string" ? response.body : JSON.stringify(response.body),
+        {
+          status: response.statusCode,
+          headers: response.headers
+        }
+      );
+    }
+  });
+
+  const [releases, readiness] = await Promise.all([
+    client.listReleases(),
+    client.getReleaseReadiness("release-console-dogfood")
+  ]);
+  const gate = await client.runReleaseGate("release-console-dogfood");
+  const auditJsonl = await client.getReleaseAuditJsonl("release-console-dogfood");
+  const html = renderAppHtml({
+    state: "ready",
+    pathname: "/releases/release-console-dogfood",
+    releaseReadiness: {
+      releases,
+      readiness: gate.readiness
+    }
+  });
+
+  assert.equal(releases.total, 2);
+  assert.equal(readiness.release.status, "blocked");
+  assert.equal(gate.status, "blocked");
+  assert.match(auditJsonl, /release.gate.started/);
+  assert.match(html, /Release Readiness/);
+  assert.match(html, /case-console-approval: Output changed/);
+  assert.match(html, /release-console-dogfood\/audit\.jsonl/);
+});
