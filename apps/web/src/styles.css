@@ -194,6 +194,98 @@ h2 {
   border-color: #dca8a8;
 }
 
+.approval-layout {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 0.9fr) minmax(340px, 1.1fr);
+}
+
+.approval-list {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.approval-list-item {
+  align-items: start;
+  border: 1px solid #d7dfda;
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.approval-list-item.is-selected {
+  background: #f4f8ff;
+  border-color: #9bbcf7;
+}
+
+.approval-list-item span,
+.approval-list-item p {
+  color: #5b6c65;
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+
+.approval-detail dl {
+  display: grid;
+  gap: 8px;
+}
+
+.approval-detail dt {
+  color: #5b6c65;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.approval-detail dd {
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+
+.risk-card {
+  border: 1px solid #d7dfda;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  padding: 14px;
+}
+
+.risk-high {
+  background: #fff2f0;
+  border-color: #dca8a8;
+}
+
+.risk-medium {
+  background: #fff8eb;
+  border-color: #e1bf7b;
+}
+
+.risk-low {
+  background: #eef9f2;
+  border-color: #abd7bb;
+}
+
+.approval-actions,
+.suggestion-list {
+  display: grid;
+  gap: 12px;
+}
+
+.approval-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.suggestion-card {
+  border: 1px solid #d7dfda;
+  border-radius: 8px;
+  padding: 12px;
+}
+
 .run-detail-grid {
   align-items: start;
   display: grid;
@@ -433,6 +525,11 @@ button {
   }
 
   .run-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .approval-layout,
+  .approval-actions {
     grid-template-columns: 1fr;
   }
 }

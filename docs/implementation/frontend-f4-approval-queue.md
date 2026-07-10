@@ -81,3 +81,47 @@
 
 - F4 扩展 `ApiClient` 后，mock client 必须同步补齐，否则前端测试无法编译。
 - 处理方式：mock client 返回同形状审批队列、审批结果和规则建议应用结果，保证真实 API 与 mock API 接口一致。
+
+## 功能点 3：Approval 页面渲染、Approve/Deny/规则建议与 e2e
+
+### 目标
+
+- `/approvals` 页面实际渲染审批队列，而不是只显示导航。
+- 页面展示待审批列表、审批详情、风险解释、工具输入、Approve/Deny 操作和规则建议卡片。
+- Approve/Deny/Apply rule 表单通过前端 API client 调用真实 API，操作后刷新 pending 队列。
+- e2e 验证审批后队列更新，相关 run 继续或失败。
+
+### 实现
+
+- 更新 `apps/web/src/app/render.ts`。
+  - `renderApp()` 在 `/approvals` 路径下调用 `client.listApprovals({ status: "pending" })`。
+  - `renderAppHtml()` 支持 `approvalQueue` 输入。
+  - 新增 Approval Queue 内容渲染：
+    - pending 指标。
+    - 审批列表。
+    - 审批详情。
+    - 风险解释卡片。
+    - input JSON。
+    - Approve/Deny 表单。
+    - 规则建议卡片与 Apply rule 表单。
+  - 新增 `bindApprovalForms()`，操作完成后刷新 pending 队列。
+- 更新 `apps/web/src/styles.css`。
+  - 增加审批布局、风险卡、审批列表、建议卡样式。
+- 更新 `apps/web/src/features/approvals/approval-queue-view-model.ts`。
+  - 将 `ApprovalDetailViewModel` 改为 `Omit<ApprovalDto, "risk" | "suggestions">` 后重定义 risk/suggestions，保证类型正确表达 view-model 扩展字段。
+- 更新 `tests/e2e/frontend-api.e2e.test.ts`。
+  - e2e 验证审批队列渲染、approve、deny、apply suggestion 和 pending 队列更新。
+
+### 测试验证
+
+- 新增 `tests/web/approval-render.test.ts`。
+  - 覆盖队列、详情、风险解释、工具输入、Approve/Deny action 和规则建议 action。
+- 更新 `tests/e2e/frontend-api.e2e.test.ts`。
+- 验证命令：
+  - `npm run test:web`：25 个 web 测试全部通过。
+  - `npm run test:e2e`：4 个 e2e 测试全部通过。
+
+### 问题记录
+
+- 第一版 `ApprovalDetailViewModel` 直接继承 `ApprovalDto` 并重写 `suggestions`，TypeScript 仍将 suggestions 视作原始 DTO 类型，导致渲染层访问 `applyAction` 编译失败。
+- 处理方式：使用 `Omit<ApprovalDto, "risk" | "suggestions">` 后重新定义 view-model 字段。

@@ -1,5 +1,6 @@
 import type { ConsoleDashboardResponse } from "../../../../packages/contracts/src/index.js";
 import type {
+  ApprovalQueueResponse,
   ListTasksResponse,
   MetricsSummaryResponse,
   ReleaseSummaryResponse,
@@ -11,6 +12,7 @@ import {
   createMetricCard
 } from "../design-system/index.js";
 import type { ApiClient } from "../shared/api/client.js";
+import { createApprovalQueueViewModel } from "../features/approvals/approval-queue-view-model.js";
 import { createDashboardViewModel } from "../features/console/dashboard-view-model.js";
 import { createRunDetailViewModel } from "../features/runs/run-detail-view-model.js";
 import { createTaskRequestFromFormData } from "../features/tasks/task-create-form.js";
@@ -25,6 +27,17 @@ export async function renderApp(root: HTMLElement, client: ApiClient): Promise<v
   });
 
   try {
+    if (pathname.startsWith("/approvals")) {
+      const approvalQueue = await client.listApprovals({ status: "pending" });
+      root.innerHTML = renderAppHtml({
+        state: "ready",
+        pathname,
+        approvalQueue
+      });
+      bindApprovalForms(root, client, pathname);
+      return;
+    }
+
     const runPath = parseRunPath(pathname);
     if (runPath) {
       const trace = await client.getRunTrace(runPath.taskId, runPath.runId);
@@ -110,6 +123,7 @@ export type RenderAppHtmlInput = {
     trace: RunTraceResponse;
     selectedEventId?: string;
   };
+  approvalQueue?: ApprovalQueueResponse;
   error?: unknown;
 };
 
@@ -140,6 +154,7 @@ export function renderAppHtml(input: RenderAppHtmlInput): string {
           dashboard: viewModel,
           taskCenter: input.taskCenter,
           runDetail: input.runDetail,
+          approvalQueue: input.approvalQueue,
           error: input.error
         })}
       </main>
@@ -153,6 +168,7 @@ function renderContent(
     dashboard?: ReturnType<typeof createDashboardViewModel>;
     taskCenter?: NonNullable<RenderAppHtmlInput["taskCenter"]>;
     runDetail?: NonNullable<RenderAppHtmlInput["runDetail"]>;
+    approvalQueue?: ApprovalQueueResponse;
     error?: unknown;
   }
 ): string {
@@ -176,6 +192,10 @@ function renderContent(
 
   if (content.runDetail) {
     return renderRunDetailContent(content.runDetail);
+  }
+
+  if (content.approvalQueue) {
+    return renderApprovalQueueContent(content.approvalQueue);
   }
 
   if (!content.dashboard) {
@@ -215,6 +235,36 @@ function renderContent(
       `).join("")}
     </section>
   `;
+}
+
+function bindApprovalForms(root: HTMLElement, client: ApiClient, pathname: string): void {
+  root.querySelectorAll<HTMLFormElement>("[data-approval-action]").forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void (async () => {
+        const action = form.dataset.approvalAction;
+        const approvalId = form.dataset.approvalId ?? "";
+        const suggestionId = form.dataset.suggestionId ?? "";
+        const reason = String(new FormData(form).get("reason") ?? "");
+
+        if (action === "approve") {
+          await client.approveApproval(approvalId, { reason });
+        } else if (action === "deny") {
+          await client.denyApproval(approvalId, { reason });
+        } else if (action === "apply-suggestion") {
+          await client.applyPolicySuggestion(suggestionId);
+        }
+
+        const approvalQueue = await client.listApprovals({ status: "pending" });
+        root.innerHTML = renderAppHtml({
+          state: "ready",
+          pathname,
+          approvalQueue
+        });
+        bindApprovalForms(root, client, pathname);
+      })();
+    });
+  });
 }
 
 function renderRunDetailContent(
@@ -363,6 +413,85 @@ function renderTaskCenterContent(
           </tbody>
         </table>
       `}
+    </section>
+  `;
+}
+
+function renderApprovalQueueContent(approvalQueue: ApprovalQueueResponse): string {
+  const viewModel = createApprovalQueueViewModel(approvalQueue);
+
+  return `
+    <section class="metrics-grid">
+      <article><span>Pending approvals</span><strong>${viewModel.totalPending}</strong></article>
+      <article><span>Selected</span><strong>${viewModel.selectedApproval ? "1" : "0"}</strong></article>
+      <article><span>Risk review</span><strong>${viewModel.selectedApproval?.risk.label ?? "None"}</strong></article>
+    </section>
+    <section class="approval-layout">
+      <div class="panel">
+        <h2>Approval Queue</h2>
+        ${viewModel.empty ? "<p>暂无待审批项</p>" : `
+          <ul class="approval-list">
+            ${viewModel.items.map((item) => `
+              <li class="approval-list-item${item.selected ? " is-selected" : ""}">
+                <div>
+                  <strong>${escapeHtml(item.tool)}</strong>
+                  <span>${escapeHtml(item.taskId)} · ${escapeHtml(item.runId)}</span>
+                  <p>${escapeHtml(item.reason)}</p>
+                </div>
+                <span class="badge badge-${escapeHtml(item.risk.tone)}">${escapeHtml(item.risk.label)}</span>
+              </li>
+            `).join("")}
+          </ul>
+        `}
+      </div>
+      <aside class="panel approval-detail" aria-label="审批详情">
+        ${viewModel.selectedApproval ? `
+          <h2>审批详情</h2>
+          <section class="risk-card risk-${escapeHtml(viewModel.selectedApproval.risk.level)}">
+            <strong>${escapeHtml(viewModel.selectedApproval.risk.label)}</strong>
+            <p>${escapeHtml(viewModel.selectedApproval.risk.explanation)}</p>
+            <ul>${viewModel.selectedApproval.risk.factors.map((factor) =>
+              `<li>${escapeHtml(factor)}</li>`
+            ).join("")}</ul>
+          </section>
+          <dl>
+            <dt>Tool</dt>
+            <dd>${escapeHtml(viewModel.selectedApproval.tool)}</dd>
+            <dt>Reason</dt>
+            <dd>${escapeHtml(viewModel.selectedApproval.reason)}</dd>
+            <dt>Input</dt>
+            <dd><pre><code>${escapeHtml(viewModel.selectedApproval.inputJson)}</code></pre></dd>
+          </dl>
+          <div class="approval-actions">
+            <form method="post" action="/api/v1/approvals/${viewModel.selectedApproval.id}/approve" data-approval-action="approve" data-approval-id="${viewModel.selectedApproval.id}">
+              <label>
+                处理原因
+                <input name="reason" value="Reviewed" />
+              </label>
+              <button type="submit">${escapeHtml(viewModel.selectedApproval.approveAction.label)}</button>
+            </form>
+            <form method="post" action="/api/v1/approvals/${viewModel.selectedApproval.id}/deny" data-approval-action="deny" data-approval-id="${viewModel.selectedApproval.id}">
+              <label>
+                拒绝原因
+                <input name="reason" value="Risk too high" />
+              </label>
+              <button type="submit">${escapeHtml(viewModel.selectedApproval.denyAction.label)}</button>
+            </form>
+          </div>
+          <section class="suggestion-list">
+            <h3>规则建议</h3>
+            ${viewModel.selectedApproval.suggestions.map((suggestion) => `
+              <article class="suggestion-card">
+                <strong>${escapeHtml(suggestion.title)}</strong>
+                <p>${escapeHtml(suggestion.description)}</p>
+                <form method="post" action="/api/v1/policies/suggestions/${suggestion.id}/apply" data-approval-action="apply-suggestion" data-suggestion-id="${suggestion.id}">
+                  <button type="submit"${suggestion.applyAction.disabled ? " disabled" : ""}>${escapeHtml(suggestion.applyAction.label)}</button>
+                </form>
+              </article>
+            `).join("")}
+          </section>
+        ` : "<p>请选择一个审批项</p>"}
+      </aside>
     </section>
   `;
 }

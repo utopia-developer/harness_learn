@@ -29,7 +29,7 @@ export type ApprovalQueueItemViewModel = {
   selected: boolean;
 };
 
-export type ApprovalDetailViewModel = ApprovalDto & {
+export type ApprovalDetailViewModel = Omit<ApprovalDto, "risk" | "suggestions"> & {
   risk: ApprovalRiskPresentation & ApprovalDto["risk"];
   inputJson: string;
   approveAction: ButtonViewModel;

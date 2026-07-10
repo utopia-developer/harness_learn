@@ -126,3 +126,44 @@ test("frontend renders run detail from trace api with output ref and replay entr
   assert.match(html, /Trace Timeline/);
   assert.match(html, /tool-output%3A%2F%2Frun-failed-demo%2Ftool-call-failed/);
 });
+
+test("frontend renders approval queue and updates it after approval actions", async () => {
+  const client = createApiClient({
+    baseUrl: "http://harness.local",
+    fetch: async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const response = await handleApiRequest({
+        method: init?.method ?? "GET",
+        url,
+        body: init?.body ? JSON.parse(String(init.body)) : undefined
+      });
+
+      return new Response(JSON.stringify(response.body), {
+        status: response.statusCode,
+        headers: response.headers
+      });
+    }
+  });
+
+  const before = await client.listApprovals({ status: "pending" });
+  const beforeHtml = renderAppHtml({
+    state: "ready",
+    pathname: "/approvals",
+    approvalQueue: before
+  });
+  const approved = await client.approveApproval("approval-run-command", {
+    reason: "Reviewed"
+  });
+  const denied = await client.denyApproval("approval-write-file", {
+    reason: "Risk too high"
+  });
+  const suggestion = await client.applyPolicySuggestion("suggestion-allow-npm-test");
+  const after = await client.listApprovals({ status: "pending" });
+
+  assert.match(beforeHtml, /High risk/);
+  assert.equal(approved.runEffect.status, "continues");
+  assert.equal(denied.runEffect.status, "failed");
+  assert.equal(suggestion.suggestion.status, "applied");
+  assert.equal(before.total, 2);
+  assert.equal(after.total, 0);
+});
