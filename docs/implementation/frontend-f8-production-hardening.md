@@ -114,6 +114,7 @@ F8 closes the frontend product loop for production hardening:
   - Reads and forwards JSON bodies for `POST`, `PUT`, and `PATCH`.
   - Preserves plain-text API responses such as JSONL exports instead of double-encoding them.
 - Added SPA fallback routing so direct browser visits to `/tasks`, `/approvals`, `/settings/policy`, `/settings/plugins`, `/metrics`, and run detail URLs serve `index.html`.
+- Added static ES module fallback for `/assets/**/*.js` so browser module imports from `main.js` can load compiled files under `dist/apps/web/src`.
 - Moved web dev server startup behind a main-module guard and exported pure helpers for regression tests.
 - Enforced high-risk approval confirmation at the API layer, not only in the UI.
 - Added `.DS_Store` to `.gitignore` to keep macOS metadata out of working tree status.
@@ -141,3 +142,4 @@ F8 closes the frontend product loop for production hardening:
 
 - The first red test failed at compile time because `createApiGatewayRequest()` and `resolveWebAsset()` did not exist. The dev server was refactored to expose these helpers and keep runtime startup side-effect free when imported by tests.
 - After adding `confirmedRisk` to high-risk approval calls, an existing API client assertion still expected the old request body. The assertion was updated to match the stricter API contract.
+- The first browser verification showed a blank page because `/assets/main.js` loaded but its relative ES module imports, such as `/assets/app/render.js`, returned 404. The dev server now maps nested `/assets/**/*.js` requests to compiled web modules.

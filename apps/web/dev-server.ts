@@ -83,6 +83,13 @@ export function resolveWebAsset(pathname: string, rootDirectory: string): WebAss
     };
   }
 
+  if (pathname.startsWith("/assets/") && pathname.endsWith(".js")) {
+    return {
+      path: join(rootDirectory, "dist/apps/web/src", pathname.slice("/assets/".length)),
+      contentType: "text/javascript; charset=utf-8"
+    };
+  }
+
   if (pathname === "/assets/styles.css") {
     return {
       path: join(rootDirectory, "apps/web/src/styles.css"),
