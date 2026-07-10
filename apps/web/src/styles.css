@@ -52,6 +52,19 @@ a {
   color: #ffffff;
 }
 
+.nav a[aria-current="page"] {
+  background: #dbeae1;
+  color: #10231f;
+  font-weight: 700;
+}
+
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #2f6fed;
+  outline-offset: 2px;
+}
+
 .workspace {
   display: grid;
   gap: 20px;
@@ -87,6 +100,12 @@ h1 {
 
 h2 {
   font-size: 18px;
+}
+
+.page-context {
+  color: #5b6c65;
+  font-size: 14px;
+  margin: 8px 0 0;
 }
 
 .status-pill {
@@ -181,7 +200,7 @@ h2 {
   }
 
   .nav {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .nav a {

@@ -71,3 +71,46 @@
 
 - 实现时 TypeScript 将 `createAppShellViewModel(pathname = WEB_ROUTES.tasks)` 的参数推断为字面量 `"/tasks"`，导致测试传入 `/approvals` 和 `/settings/plugins` 时类型失败。
 - 处理方式：显式声明 `pathname: string = WEB_ROUTES.tasks`，让 Shell 支持真实路由输入。
+
+## 功能点 3：渲染层接入、可访问性与端到端验证
+
+### 目标
+
+- 让实际页面渲染复用 F1 的 App Shell 和设计系统 view-model。
+- 页面必须展示来自 API/后端 Console Dashboard 的真实数据，不能只实现导航或静态 icon。
+- Loading、Error 和当前导航状态需要具备基础可访问性。
+
+### 实现
+
+- 更新 `apps/web/src/app/render.ts`。
+  - 新增 `renderAppHtml()` 纯函数，供浏览器挂载和测试复用。
+  - `renderApp()` 改为通过 `renderAppHtml()` 挂载 loading、ready、error 三种状态。
+  - 接入 `createAppShellViewModel()`，渲染 Sidebar、Topbar 和主内容区 aria label。
+  - 接入 `createMetricCard()` 和 `createLoadingState()`，复用设计系统 view-model。
+  - ready 状态继续展示任务、待审批和运行 Trace 数据。
+- 更新 `apps/web/src/styles.css`。
+  - 增加 `[aria-current="page"]` 当前导航样式。
+  - 增加 `:focus-visible` 焦点样式。
+  - 移动端导航改为 5 列，匹配 F1 五个核心页面。
+- 更新 `tests/e2e/frontend-api.e2e.test.ts`。
+  - 端到端验证从前端 API client 读取 API gateway 数据后，实际页面 HTML 中能看到任务目标、审批工具和当前导航状态。
+
+### 测试验证
+
+- 新增 `tests/web/render-shell.test.ts`。
+- 覆盖：
+  - 渲染层使用共享 Shell。
+  - 当前导航带 `aria-current="page"`。
+  - 主内容区带页面级 aria label。
+  - Loading 使用 `aria-live="polite"`。
+  - Error 使用 `role="alert"`。
+  - CSS 包含焦点与 active 导航状态。
+- 验证命令：
+  - `npm run test:web`：11 个 web 测试全部通过。
+  - `npm run test:e2e`：1 个 e2e 测试通过，并验证 API 数据进入页面 HTML。
+
+### 问题记录
+
+- 第一版 F0 渲染层将 Shell HTML 写在 `renderApp()` 内部，测试无法直接复用同一套页面生成逻辑。
+- 处理方式：提取 `renderAppHtml()`，让 DOM 挂载和测试都使用同一条渲染路径。
+- CSS 一开始缺少 `:focus-visible` 和 `[aria-current="page"]`，新增测试后补齐真实样式，避免只在 view-model 层声明可访问性。

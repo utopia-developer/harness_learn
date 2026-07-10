@@ -1,43 +1,68 @@
+import type { ConsoleDashboardResponse } from "../../../../packages/contracts/src/index.js";
+import {
+  createLoadingState,
+  createMetricCard
+} from "../design-system/index.js";
 import type { ApiClient } from "../shared/api/client.js";
-import { WEB_NAVIGATION } from "./navigation.js";
 import { createDashboardViewModel } from "../features/console/dashboard-view-model.js";
+import { createAppShellViewModel } from "./shell.js";
 
 export async function renderApp(root: HTMLElement, client: ApiClient): Promise<void> {
-  root.innerHTML = renderShell("loading");
+  const pathname = root.ownerDocument.location?.pathname ?? "/";
+  root.innerHTML = renderAppHtml({
+    state: "loading",
+    pathname
+  });
 
   try {
     const dashboard = await client.getConsoleDashboard();
-    const viewModel = createDashboardViewModel(dashboard);
-    root.innerHTML = renderShell("ready", viewModel);
+    root.innerHTML = renderAppHtml({
+      state: "ready",
+      pathname,
+      dashboard
+    });
   } catch (error) {
-    root.innerHTML = renderShell("error", undefined, error);
+    root.innerHTML = renderAppHtml({
+      state: "error",
+      pathname,
+      error
+    });
   }
 }
 
-type RenderState = "loading" | "ready" | "error";
+export type RenderState = "loading" | "ready" | "error";
 
-function renderShell(
-  state: RenderState,
-  viewModel?: ReturnType<typeof createDashboardViewModel>,
-  error?: unknown
-): string {
+export type RenderAppHtmlInput = {
+  state: RenderState;
+  pathname: string;
+  dashboard?: ConsoleDashboardResponse;
+  error?: unknown;
+};
+
+export function renderAppHtml(input: RenderAppHtmlInput): string {
+  const shell = createAppShellViewModel(input.pathname);
+  const viewModel = input.dashboard
+    ? createDashboardViewModel(input.dashboard)
+    : undefined;
+
   return `
     <div class="app-shell">
-      <aside class="sidebar">
-        <div class="brand">Harness Console</div>
-        <nav class="nav">${WEB_NAVIGATION.map((item) =>
-          `<a href="${item.href}">${item.label}</a>`
+      <aside class="sidebar" aria-label="主导航">
+        <div class="brand">${escapeHtml(shell.brand)}</div>
+        <nav class="nav">${shell.navigation.map((item) =>
+          `<a href="${item.href}"${item.ariaCurrent ? ` aria-current="${item.ariaCurrent}"` : ""}>${escapeHtml(item.label)}</a>`
         ).join("")}</nav>
       </aside>
-      <main class="workspace">
+      <main class="workspace" aria-label="${escapeHtml(shell.mainRegionAriaLabel)}">
         <header class="topbar">
           <div>
-            <p class="eyebrow">F0 Console</p>
+            <p class="eyebrow">${escapeHtml(shell.currentPage.label)}</p>
             <h1>Agent Harness 运行工作台</h1>
+            <p class="page-context">${escapeHtml(shell.topbar.title)} · ${escapeHtml(shell.topbar.description)}</p>
           </div>
-          <span class="status-pill">${stateLabel(state)}</span>
+          <span class="status-pill">${stateLabel(input.state)}</span>
         </header>
-        ${renderContent(state, viewModel, error)}
+        ${renderContent(input.state, viewModel, input.error)}
       </main>
     </div>
   `;
@@ -49,12 +74,13 @@ function renderContent(
   error?: unknown
 ): string {
   if (state === "loading") {
-    return `<section class="panel"><p>正在加载运行数据...</p></section>`;
+    const loading = createLoadingState("正在加载运行数据...");
+    return `<section class="panel" aria-live="${loading.ariaLive}"><p>${loading.label}</p></section>`;
   }
 
   if (state === "error") {
     return `
-      <section class="panel error-panel">
+      <section class="panel error-panel" role="alert">
         <h2>无法加载 Console Dashboard</h2>
         <p>${escapeHtml(error instanceof Error ? error.message : String(error))}</p>
       </section>
@@ -67,9 +93,13 @@ function renderContent(
 
   return `
     <section class="metrics-grid">
-      <article><span>任务</span><strong>${viewModel.totalTasks}</strong></article>
-      <article><span>待审批</span><strong>${viewModel.pendingApprovalCount}</strong></article>
-      <article><span>运行 Trace</span><strong>${viewModel.runningTraceCount}</strong></article>
+      ${[
+        createMetricCard({ label: "任务", value: viewModel.totalTasks }),
+        createMetricCard({ label: "待审批", value: viewModel.pendingApprovalCount }),
+        createMetricCard({ label: "运行 Trace", value: viewModel.runningTraceCount })
+      ].map((metric) =>
+        `<article><span>${escapeHtml(metric.label)}</span><strong>${metric.value}</strong></article>`
+      ).join("")}
     </section>
     <section class="panel">
       <h2>当前任务</h2>
