@@ -3,6 +3,12 @@ import type {
   ConsoleDashboardResponse,
   CreateTaskRequest,
   CreateTaskResponse,
+  ApprovalActionRequest,
+  ApprovalActionResponse,
+  ApprovalDto,
+  ApprovalQueueResponse,
+  ApprovalStatus,
+  ApplyPolicySuggestionResponse,
   ListTasksQuery,
   ListTasksResponse,
   MetricsSummaryResponse,
@@ -64,6 +70,33 @@ const mockTasks: TaskCenterTaskDto[] = mockDashboard.tasks.map((task) => ({
   releaseGateStatus: "blocked",
   costUsd: 1.2
 }));
+
+const mockApproval: ApprovalDto = {
+  id: "approval-run-command",
+  taskId: "task-f0-demo",
+  runId: "run-f0-demo",
+  traceId: "trace-f0-demo",
+  callId: "tool-call-f0",
+  tool: "run_command",
+  mode: "default",
+  reason: "Tool requires approval",
+  requestedAt: "2026-07-10T00:00:00.000Z",
+  status: "pending",
+  input: { cmd: "npm test" },
+  risk: {
+    level: "high",
+    explanation: "Command execution is risky",
+    factors: ["command"]
+  },
+  suggestions: [
+    {
+      id: "suggestion-allow-npm-test",
+      title: "Allow npm test",
+      description: "Allow repeated npm test commands.",
+      status: "pending"
+    }
+  ]
+};
 
 export function createMockApiClient(): ApiClient {
   return {
@@ -162,6 +195,56 @@ export function createMockApiClient(): ApiClient {
         expectedOutput: "",
         expectedTools: ["exec_command"]
       };
+    },
+    async listApprovals(query: { status?: ApprovalStatus | "all" } = {}): Promise<ApprovalQueueResponse> {
+      return {
+        approvals: query.status === "all" || query.status === "approved" ? [] : [mockApproval],
+        total: query.status === "all" || query.status === "approved" ? 0 : 1,
+        filters: { status: query.status ?? "pending" }
+      };
+    },
+    async approveApproval(
+      approvalId: string,
+      input: ApprovalActionRequest = {}
+    ): Promise<ApprovalActionResponse> {
+      return approvalAction(approvalId, "approved", "continues", input.reason);
+    },
+    async denyApproval(
+      approvalId: string,
+      input: ApprovalActionRequest = {}
+    ): Promise<ApprovalActionResponse> {
+      return approvalAction(approvalId, "denied", "failed", input.reason);
+    },
+    async applyPolicySuggestion(): Promise<ApplyPolicySuggestionResponse> {
+      return {
+        suggestion: {
+          ...mockApproval.suggestions[0],
+          status: "applied"
+        }
+      };
+    }
+  };
+}
+
+function approvalAction(
+  approvalId: string,
+  status: "approved" | "denied",
+  runStatus: "continues" | "failed",
+  reason?: string
+): ApprovalActionResponse {
+  return {
+    approval: {
+      ...mockApproval,
+      id: approvalId,
+      status,
+      reason: reason ?? mockApproval.reason
+    },
+    runEffect: {
+      runId: mockApproval.runId,
+      status: runStatus,
+      message: runStatus === "continues"
+        ? "Approval accepted; run may continue."
+        : "Approval denied; run is marked failed."
     }
   };
 }

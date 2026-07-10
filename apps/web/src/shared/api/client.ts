@@ -1,5 +1,10 @@
 import {
   API_ENDPOINTS,
+  type ApprovalActionRequest,
+  type ApprovalActionResponse,
+  type ApprovalQueueResponse,
+  type ApprovalStatus,
+  type ApplyPolicySuggestionResponse,
   type ConsoleDashboardResponse,
   type CreateTaskRequest,
   type CreateTaskResponse,
@@ -28,6 +33,10 @@ export type ApiClient = {
   getRunStreamSnapshot(taskId: string, runId: string): Promise<string>;
   getToolOutput(ref: string): Promise<ToolOutputResponse>;
   getReplayCase(traceId: string): Promise<ReplayCaseResponse>;
+  listApprovals(query?: { status?: ApprovalStatus | "all" }): Promise<ApprovalQueueResponse>;
+  approveApproval(approvalId: string, input?: ApprovalActionRequest): Promise<ApprovalActionResponse>;
+  denyApproval(approvalId: string, input?: ApprovalActionRequest): Promise<ApprovalActionResponse>;
+  applyPolicySuggestion(suggestionId: string): Promise<ApplyPolicySuggestionResponse>;
 };
 
 export type ApiClientOptions = {
@@ -95,6 +104,33 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
         fetchImpl,
         baseUrl,
         API_ENDPOINTS.replayCase(traceId)
+      ),
+    listApprovals: (query = {}) =>
+      getJson<ApprovalQueueResponse>(
+        fetchImpl,
+        baseUrl,
+        withApprovalQuery(API_ENDPOINTS.approvals, query)
+      ),
+    approveApproval: (approvalId, input = {}) =>
+      postJson<ApprovalActionResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.approveApproval(approvalId),
+        input
+      ),
+    denyApproval: (approvalId, input = {}) =>
+      postJson<ApprovalActionResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.denyApproval(approvalId),
+        input
+      ),
+    applyPolicySuggestion: (suggestionId) =>
+      postJson<ApplyPolicySuggestionResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.applyPolicySuggestion(suggestionId),
+        {}
       )
   };
 }
@@ -152,6 +188,18 @@ function withQuery(endpoint: string, query: ListTasksQuery = {}): string {
   }
   if (query.sort) {
     params.set("sort", query.sort);
+  }
+  const encoded = params.toString();
+  return encoded ? `${endpoint}?${encoded}` : endpoint;
+}
+
+function withApprovalQuery(
+  endpoint: string,
+  query: { status?: ApprovalStatus | "all" } = {}
+): string {
+  const params = new URLSearchParams();
+  if (query.status) {
+    params.set("status", query.status);
   }
   const encoded = params.toString();
   return encoded ? `${endpoint}?${encoded}` : endpoint;
