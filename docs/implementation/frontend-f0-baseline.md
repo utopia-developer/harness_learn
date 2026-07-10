@@ -32,3 +32,36 @@
 
 - 当前契约是手写 TypeScript 类型，尚未引入 OpenAPI 生成链路。
 - 后续 API 增多后，应将 `packages/contracts` 切换为 OpenAPI schema + generated types。
+
+## 功能点 2：API 网关基线
+
+### 目标
+
+- 建立前端可访问的最小 API 边界。
+- F0 不重新实现后端业务逻辑，只将 HTTP endpoint 映射到已有 harness 后端能力。
+- 通过测试证明 Console Dashboard 数据来自 `src/console/console-view.ts` 的聚合结果。
+
+### 实现
+
+- 新增 `apps/api/src/server.ts`。
+  - 暴露 `GET /api/v1/health`。
+  - 暴露 `GET /api/v1/console/dashboard`。
+  - `createApiServer()` 负责真实 Node HTTP server。
+  - `handleApiRequest()` 负责可测试的路由逻辑。
+- 新增 `apps/api/src/dashboard-fixture.ts`。
+  - 使用 `TaskRecord`、`AgentTrace`、`ApprovalRecord` 构造 F0 demo 数据。
+  - 调用 `createConsoleDashboard()` 生成 `ConsoleDashboardResponse`。
+- 新增 `apps/api/src/index.ts`，支持本地启动 API 服务。
+- 更新 `tsconfig.json`，让 `apps/api/src/**/*.ts` 参与根构建。
+
+### 测试验证
+
+- 新增 `tests/api/api-server.test.ts`。
+- 覆盖 health endpoint 和 console dashboard endpoint。
+- 验证命令：`npm test`。
+- 当前结果：93 个测试全部通过。
+
+### 问题记录
+
+- 测试环境不允许监听 `127.0.0.1`，真实 `server.listen()` 会得到 `EPERM`。
+- 处理方式：将 API 路由处理提取为 `handleApiRequest()` 纯函数，测试覆盖同一路由逻辑；生产和本地开发仍通过 `createApiServer()` 启动真实 HTTP server。
