@@ -6,7 +6,10 @@ import {
   type ListTasksQuery,
   type ListTasksResponse,
   type MetricsSummaryResponse,
-  type ReleaseSummaryResponse
+  type ReplayCaseResponse,
+  type ReleaseSummaryResponse,
+  type RunTraceResponse,
+  type ToolOutputResponse
 } from "../../../../../packages/contracts/src/index.js";
 
 export type HealthResponse = {
@@ -21,6 +24,10 @@ export type ApiClient = {
   createTask(input: CreateTaskRequest): Promise<CreateTaskResponse>;
   getReleaseSummary(): Promise<ReleaseSummaryResponse>;
   getMetricsSummary(): Promise<MetricsSummaryResponse>;
+  getRunTrace(taskId: string, runId: string): Promise<RunTraceResponse>;
+  getRunStreamSnapshot(taskId: string, runId: string): Promise<string>;
+  getToolOutput(ref: string): Promise<ToolOutputResponse>;
+  getReplayCase(traceId: string): Promise<ReplayCaseResponse>;
 };
 
 export type ApiClientOptions = {
@@ -64,6 +71,30 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
         fetchImpl,
         baseUrl,
         API_ENDPOINTS.metricsSummary
+      ),
+    getRunTrace: (taskId, runId) =>
+      getJson<RunTraceResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.runTrace(taskId, runId)
+      ),
+    getRunStreamSnapshot: (taskId, runId) =>
+      getText(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.runStream(taskId, runId)
+      ),
+    getToolOutput: (ref) =>
+      getJson<ToolOutputResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.toolOutput(ref)
+      ),
+    getReplayCase: (traceId) =>
+      getJson<ReplayCaseResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.replayCase(traceId)
       )
   };
 }
@@ -78,6 +109,18 @@ async function getJson<T>(
     throw new Error(`API request failed: ${response.status} ${response.statusText}`);
   }
   return await response.json() as T;
+}
+
+async function getText(
+  fetchImpl: typeof fetch,
+  baseUrl: string,
+  endpoint: string
+): Promise<string> {
+  const response = await fetchImpl(`${baseUrl}${endpoint}`);
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+  return await response.text();
 }
 
 async function postJson<T>(
