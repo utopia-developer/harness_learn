@@ -5,6 +5,7 @@ import {
   API_ENDPOINTS,
   WEB_ROUTES,
   type ConsoleDashboardResponse,
+  type ProjectPolicyResponse,
   type ReleaseReadinessResponse,
   type TaskStatus
 } from "../../packages/contracts/src/index.js";
@@ -19,6 +20,12 @@ test("contracts expose stable frontend routes and api endpoints", () => {
   assert.equal(API_ENDPOINTS.releaseReadiness("release-1"), "/api/v1/releases/release-1/readiness");
   assert.equal(API_ENDPOINTS.runReleaseGate("release-1"), "/api/v1/releases/release-1/gate");
   assert.equal(API_ENDPOINTS.releaseAuditJsonl("release-1"), "/api/v1/releases/release-1/audit.jsonl");
+  assert.equal(API_ENDPOINTS.projectPolicy("project-harness"), "/api/v1/projects/project-harness/policy");
+  assert.equal(API_ENDPOINTS.simulateProjectPolicy("project-harness"), "/api/v1/projects/project-harness/policy/simulate");
+  assert.equal(API_ENDPOINTS.teamPlugins("team-platform"), "/api/v1/teams/team-platform/plugins");
+  assert.equal(API_ENDPOINTS.installTeamPlugin("team-platform", "review-pack"), "/api/v1/teams/team-platform/plugins/review-pack/install");
+  assert.equal(API_ENDPOINTS.enableTeamPlugin("team-platform", "review-pack"), "/api/v1/teams/team-platform/plugins/review-pack/enable");
+  assert.equal(API_ENDPOINTS.disableTeamPlugin("team-platform", "review-pack"), "/api/v1/teams/team-platform/plugins/review-pack/disable");
 });
 
 test("ConsoleDashboardResponse models the F0 dashboard contract", () => {
@@ -95,4 +102,24 @@ test("ReleaseReadinessResponse models the F5 readiness contract", () => {
   assert.equal(response.release.status, "blocked");
   assert.equal(response.checks[0].label, "Replay Eval");
   assert.equal(response.evidence.auditJsonlHref, API_ENDPOINTS.releaseAuditJsonl("release-2026-07-10"));
+});
+
+test("ProjectPolicyResponse models the F6 policy contract", () => {
+  const response: ProjectPolicyResponse = {
+    project: {
+      id: "project-harness",
+      teamId: "team-platform",
+      name: "Harness Platform"
+    },
+    policy: {
+      allowedTools: ["read_file", "search_text"],
+      allowedModels: ["gpt-5-mini"]
+    },
+    availableTools: ["read_file", "search_text", "run_command"],
+    availableModels: ["gpt-5", "gpt-5-mini"]
+  };
+
+  assert.equal(response.project.teamId, "team-platform");
+  assert.equal(response.policy.allowedTools.includes("read_file"), true);
+  assert.equal(response.availableModels.includes("gpt-5"), true);
 });

@@ -276,6 +276,64 @@ export type ReleaseGateActionResponse = {
   readiness: ReleaseReadinessResponse;
 };
 
+export type ProjectPolicyDto = {
+  allowedTools: string[];
+  allowedModels: string[];
+};
+
+export type ProjectPolicyResponse = {
+  project: {
+    id: string;
+    teamId: string;
+    name: string;
+  };
+  policy: ProjectPolicyDto;
+  availableTools: string[];
+  availableModels: string[];
+};
+
+export type UpdateProjectPolicyRequest = ProjectPolicyDto;
+
+export type PolicySimulationRequest = {
+  tool?: string;
+  model?: string;
+};
+
+export type PolicySimulationDecisionDto = {
+  name: string;
+  allowed: boolean;
+  reason: string;
+};
+
+export type PolicySimulationResponse = {
+  projectId: string;
+  tool: PolicySimulationDecisionDto;
+  model: PolicySimulationDecisionDto;
+};
+
+export type TeamPluginDto = {
+  id: string;
+  name: string;
+  version: string;
+  tools: string[];
+  skills: string[];
+  installed: boolean;
+  enabled: boolean;
+};
+
+export type TeamPluginsResponse = {
+  teamId: string;
+  plugins: TeamPluginDto[];
+  sharedSkills: string[];
+};
+
+export type PluginActionResponse = {
+  teamId: string;
+  plugin: TeamPluginDto;
+  sharedSkills: string[];
+  message: string;
+};
+
 export const API_ENDPOINTS = {
   health: "/api/v1/health",
   consoleDashboard: "/api/v1/console/dashboard",
@@ -285,6 +343,16 @@ export const API_ENDPOINTS = {
   releaseReadiness: (releaseId: string) => `/api/v1/releases/${releaseId}/readiness`,
   runReleaseGate: (releaseId: string) => `/api/v1/releases/${releaseId}/gate`,
   releaseAuditJsonl: (releaseId: string) => `/api/v1/releases/${releaseId}/audit.jsonl`,
+  projectPolicy: (projectId: string) => `/api/v1/projects/${projectId}/policy`,
+  simulateProjectPolicy: (projectId: string) =>
+    `/api/v1/projects/${projectId}/policy/simulate`,
+  teamPlugins: (teamId: string) => `/api/v1/teams/${teamId}/plugins`,
+  installTeamPlugin: (teamId: string, pluginId: string) =>
+    `/api/v1/teams/${teamId}/plugins/${pluginId}/install`,
+  enableTeamPlugin: (teamId: string, pluginId: string) =>
+    `/api/v1/teams/${teamId}/plugins/${pluginId}/enable`,
+  disableTeamPlugin: (teamId: string, pluginId: string) =>
+    `/api/v1/teams/${teamId}/plugins/${pluginId}/disable`,
   metricsSummary: "/api/v1/metrics/summary",
   runTrace: (taskId: string, runId: string) =>
     `/api/v1/tasks/${taskId}/runs/${runId}/trace`,

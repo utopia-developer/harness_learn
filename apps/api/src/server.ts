@@ -7,12 +7,14 @@ import {
   type ListTasksQuery,
   type ApprovalActionRequest,
   type ApprovalStatus,
+  type PolicySimulationRequest,
   type TaskStatus
 } from "../../../packages/contracts/src/index.js";
 import { createApprovalQueueStore, type ApprovalQueueStore } from "./approval-queue-store.js";
 import { createDemoConsoleDashboard } from "./dashboard-fixture.js";
 import { createReleaseReadinessStore, type ReleaseReadinessStore } from "./release-readiness-store.js";
 import { createRunTraceStore, type RunTraceStore } from "./run-trace-store.js";
+import { createTeamGovernanceStore, type TeamGovernanceStore } from "./team-governance-store.js";
 import { createTaskCenterStore, type TaskCenterStore } from "./task-center-store.js";
 
 export type ApiServerOptions = {
@@ -21,6 +23,7 @@ export type ApiServerOptions = {
   runTraceStore?: RunTraceStore;
   approvalQueueStore?: ApprovalQueueStore;
   releaseReadinessStore?: ReleaseReadinessStore;
+  teamGovernanceStore?: TeamGovernanceStore;
 };
 
 export type ApiRequest = {
@@ -53,6 +56,7 @@ const defaultTaskCenterStore = createTaskCenterStore();
 const defaultRunTraceStore = createRunTraceStore();
 const defaultApprovalQueueStore = createApprovalQueueStore();
 const defaultReleaseReadinessStore = createReleaseReadinessStore();
+const defaultTeamGovernanceStore = createTeamGovernanceStore();
 
 export async function handleApiRequest(
   request: ApiRequest,
@@ -63,6 +67,7 @@ export async function handleApiRequest(
   const runTraceStore = options.runTraceStore ?? defaultRunTraceStore;
   const approvalQueueStore = options.approvalQueueStore ?? defaultApprovalQueueStore;
   const releaseReadinessStore = options.releaseReadinessStore ?? defaultReleaseReadinessStore;
+  const teamGovernanceStore = options.teamGovernanceStore ?? defaultTeamGovernanceStore;
   const pathname = parsePathname(request);
 
   if (request.method === "GET" && pathname === API_ENDPOINTS.health) {
@@ -129,6 +134,64 @@ export async function handleApiRequest(
 
   if (request.method === "GET" && pathname === API_ENDPOINTS.metricsSummary) {
     return jsonResponse(200, taskCenterStore.getMetricsSummary());
+  }
+
+  const projectPolicyMatch = pathname.match(/^\/api\/v1\/projects\/([^/]+)\/policy$/);
+  if (request.method === "GET" && projectPolicyMatch) {
+    const policy = teamGovernanceStore.getProjectPolicy(
+      decodeURIComponent(projectPolicyMatch[1])
+    );
+    return policy ? jsonResponse(200, policy) : jsonResponse(404, {
+      error: "not_found",
+      message: "Project policy not found"
+    });
+  }
+
+  if (request.method === "PUT" && projectPolicyMatch) {
+    const policy = teamGovernanceStore.updateProjectPolicy(
+      decodeURIComponent(projectPolicyMatch[1]),
+      parseProjectPolicyRequest(request.body)
+    );
+    return policy ? jsonResponse(200, policy) : jsonResponse(404, {
+      error: "not_found",
+      message: "Project policy not found"
+    });
+  }
+
+  const projectPolicySimulationMatch = pathname.match(/^\/api\/v1\/projects\/([^/]+)\/policy\/simulate$/);
+  if (request.method === "POST" && projectPolicySimulationMatch) {
+    const simulation = teamGovernanceStore.simulateProjectPolicy(
+      decodeURIComponent(projectPolicySimulationMatch[1]),
+      parsePolicySimulationRequest(request.body)
+    );
+    return simulation ? jsonResponse(200, simulation) : jsonResponse(404, {
+      error: "not_found",
+      message: "Project policy not found"
+    });
+  }
+
+  const teamPluginsMatch = pathname.match(/^\/api\/v1\/teams\/([^/]+)\/plugins$/);
+  if (request.method === "GET" && teamPluginsMatch) {
+    return jsonResponse(200, teamGovernanceStore.listTeamPlugins(
+      decodeURIComponent(teamPluginsMatch[1])
+    ));
+  }
+
+  const pluginActionMatch = pathname.match(/^\/api\/v1\/teams\/([^/]+)\/plugins\/([^/]+)\/(install|enable|disable)$/);
+  if (request.method === "POST" && pluginActionMatch) {
+    const teamId = decodeURIComponent(pluginActionMatch[1]);
+    const pluginId = decodeURIComponent(pluginActionMatch[2]);
+    const action = pluginActionMatch[3];
+    const result = action === "install"
+      ? teamGovernanceStore.installTeamPlugin(teamId, pluginId)
+      : action === "enable"
+        ? teamGovernanceStore.enableTeamPlugin(teamId, pluginId)
+        : teamGovernanceStore.disableTeamPlugin(teamId, pluginId);
+
+    return result ? jsonResponse(200, result) : jsonResponse(404, {
+      error: "not_found",
+      message: "Plugin not found"
+    });
   }
 
   if (request.method === "GET" && pathname === API_ENDPOINTS.approvals) {
@@ -250,6 +313,35 @@ function parseApprovalActionRequest(body: unknown): ApprovalActionRequest {
   }
   const input = body as Record<string, unknown>;
   return typeof input.reason === "string" ? { reason: input.reason } : {};
+}
+
+function parseProjectPolicyRequest(body: unknown): { allowedTools: string[]; allowedModels: string[] } {
+  if (!body || typeof body !== "object") {
+    return {
+      allowedTools: [],
+      allowedModels: []
+    };
+  }
+  const input = body as Record<string, unknown>;
+  return {
+    allowedTools: Array.isArray(input.allowedTools)
+      ? input.allowedTools.filter((tool): tool is string => typeof tool === "string")
+      : [],
+    allowedModels: Array.isArray(input.allowedModels)
+      ? input.allowedModels.filter((model): model is string => typeof model === "string")
+      : []
+  };
+}
+
+function parsePolicySimulationRequest(body: unknown): PolicySimulationRequest {
+  if (!body || typeof body !== "object") {
+    return {};
+  }
+  const input = body as Record<string, unknown>;
+  return {
+    tool: typeof input.tool === "string" ? input.tool : undefined,
+    model: typeof input.model === "string" ? input.model : undefined
+  };
 }
 
 function parseStatus(value: string | null): TaskStatus | "all" | undefined {
