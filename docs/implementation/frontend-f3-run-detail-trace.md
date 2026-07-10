@@ -85,3 +85,47 @@
 
 - 扩展 `ApiClient` 后，mock client 也必须同步实现 F3 方法，否则 TypeScript 会阻止前端测试通过。
 - `tool-output://...` 这类 ref 包含 `:` 和 `/`，前端必须通过 endpoint builder 做 `encodeURIComponent()`，测试已覆盖生成路径。
+
+## 功能点 3：Run Detail 页面渲染、输出引用、Replay Case 与 e2e
+
+### 目标
+
+- `/tasks/:taskId/runs/:runId` 页面实际渲染 Run Detail。
+- 页面展示 Trace Timeline、Event Detail Panel、失败模块、工具输入、大输出引用和 Replay Case 入口。
+- e2e 验证前端从 API gateway 获取 trace、stream、tool output、replay case，并渲染到页面。
+
+### 实现
+
+- 更新 `apps/web/src/app/render.ts`。
+  - `renderApp()` 优先识别 `/tasks/:taskId/runs/:runId` 路径。
+  - 调用 `client.getRunTrace()` 获取运行详情。
+  - `renderAppHtml()` 支持 `runDetail` 输入。
+  - 新增 Run Detail 渲染：
+    - header metrics。
+    - failure panel。
+    - Trace Timeline。
+    - Event Detail Panel。
+    - tool input JSON。
+    - output ref 链接。
+    - Replay Case 链接。
+- 更新 `apps/web/src/features/runs/run-detail-view-model.ts`。
+  - timeline item 自带 `outputRefHref`，避免输出引用依赖当前选中事件。
+- 更新 `apps/web/src/styles.css`。
+  - 增加 timeline、failure panel、event detail、code block 和 responsive 布局样式。
+- 更新 `tests/e2e/frontend-api.e2e.test.ts`。
+  - e2e 读取 Run Trace、SSE 文本、Tool Output 和 Replay Case。
+  - 渲染 Run Detail 页面并断言输出引用、timeline 和失败模块可见。
+
+### 测试验证
+
+- 新增 `tests/web/run-detail-render.test.ts`。
+  - 覆盖 timeline、event detail、failure module、tool input、output ref、Replay Case。
+- 更新 `tests/e2e/frontend-api.e2e.test.ts`。
+- 验证命令：
+  - `npm run test:web`：21 个 web 测试全部通过。
+  - `npm run test:e2e`：3 个 e2e 测试全部通过。
+
+### 问题记录
+
+- 第一版 Run Detail 渲染中，timeline 的输出引用链接依赖 selected event；当选中的是工具请求事件时，后续工具完成事件的大输出链接不会展示。
+- 处理方式：将 `outputRefHref` 放入每个 timeline item 自己的 view-model，timeline 行独立渲染输出引用。

@@ -81,3 +81,48 @@ test("frontend can create a task and render it in the task center page", async (
   assert.match(html, /Pending/);
   assert.match(html, /name="goal"/);
 });
+
+test("frontend renders run detail from trace api with output ref and replay entry", async () => {
+  const client = createApiClient({
+    baseUrl: "http://harness.local",
+    fetch: async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const response = await handleApiRequest({
+        method: init?.method ?? "GET",
+        url,
+        body: init?.body ? JSON.parse(String(init.body)) : undefined
+      });
+
+      return new Response(
+        typeof response.body === "string" ? response.body : JSON.stringify(response.body),
+        {
+          status: response.statusCode,
+          headers: response.headers
+        }
+      );
+    }
+  });
+
+  const [trace, stream, output, replayCase] = await Promise.all([
+    client.getRunTrace("task-failed-demo", "run-failed-demo"),
+    client.getRunStreamSnapshot("task-failed-demo", "run-failed-demo"),
+    client.getToolOutput("tool-output://run-failed-demo/tool-call-failed"),
+    client.getReplayCase("trace-completed-demo")
+  ]);
+
+  const html = renderAppHtml({
+    state: "ready",
+    pathname: "/tasks/task-failed-demo/runs/run-failed-demo",
+    runDetail: {
+      trace,
+      selectedEventId: "trace-failed-demo:2"
+    }
+  });
+
+  assert.equal(trace.failure?.module, "tool");
+  assert.match(stream, /event: trace.event/);
+  assert.equal(output.content, "exitCode: 1\nstderr: test failed\n");
+  assert.equal(replayCase.expectedTools[0], "read_file");
+  assert.match(html, /Trace Timeline/);
+  assert.match(html, /tool-output%3A%2F%2Frun-failed-demo%2Ftool-call-failed/);
+});

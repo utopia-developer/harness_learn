@@ -190,6 +190,101 @@ h2 {
   border-color: #dca8a8;
 }
 
+.failure-panel {
+  border-color: #dca8a8;
+}
+
+.run-detail-grid {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.8fr);
+}
+
+.timeline {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.timeline-item {
+  border: 1px solid #d7dfda;
+  border-left-width: 4px;
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.timeline-item p {
+  color: #5b6c65;
+  margin: 4px 0;
+}
+
+.timeline-sequence {
+  color: #5b6c65;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+.timeline-warning {
+  border-left-color: #b56b00;
+}
+
+.timeline-error {
+  border-left-color: #c93c37;
+}
+
+.timeline-success {
+  border-left-color: #247b4b;
+}
+
+.timeline-info {
+  border-left-color: #2f6fed;
+}
+
+.timeline-item.is-selected {
+  background: #f4f8ff;
+}
+
+.event-detail dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.event-detail dt {
+  color: #5b6c65;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.event-detail dd {
+  margin: 0 0 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+pre {
+  background: #10231f;
+  border-radius: 8px;
+  color: #eef5ef;
+  overflow: auto;
+  padding: 12px;
+}
+
+.replay-link {
+  display: inline-flex;
+  font-weight: 700;
+  margin-top: 16px;
+}
+
 .task-toolbar,
 .task-create-drawer {
   display: grid;
@@ -334,6 +429,10 @@ button {
 
   .task-filter-form,
   .task-create-form {
+    grid-template-columns: 1fr;
+  }
+
+  .run-detail-grid {
     grid-template-columns: 1fr;
   }
 }

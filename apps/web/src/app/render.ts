@@ -3,6 +3,7 @@ import type {
   ListTasksResponse,
   MetricsSummaryResponse,
   ReleaseSummaryResponse,
+  RunTraceResponse,
   TaskStatus
 } from "../../../../packages/contracts/src/index.js";
 import {
@@ -11,6 +12,7 @@ import {
 } from "../design-system/index.js";
 import type { ApiClient } from "../shared/api/client.js";
 import { createDashboardViewModel } from "../features/console/dashboard-view-model.js";
+import { createRunDetailViewModel } from "../features/runs/run-detail-view-model.js";
 import { createTaskRequestFromFormData } from "../features/tasks/task-create-form.js";
 import { createTaskCenterViewModel } from "../features/tasks/task-center-view-model.js";
 import { createAppShellViewModel } from "./shell.js";
@@ -23,6 +25,17 @@ export async function renderApp(root: HTMLElement, client: ApiClient): Promise<v
   });
 
   try {
+    const runPath = parseRunPath(pathname);
+    if (runPath) {
+      const trace = await client.getRunTrace(runPath.taskId, runPath.runId);
+      root.innerHTML = renderAppHtml({
+        state: "ready",
+        pathname,
+        runDetail: { trace }
+      });
+      return;
+    }
+
     if (pathname.startsWith("/tasks")) {
       const [tasks, releaseSummary, metricsSummary] = await Promise.all([
         client.listTasks(),
@@ -93,6 +106,10 @@ export type RenderAppHtmlInput = {
     releaseSummary: ReleaseSummaryResponse;
     metricsSummary: MetricsSummaryResponse;
   };
+  runDetail?: {
+    trace: RunTraceResponse;
+    selectedEventId?: string;
+  };
   error?: unknown;
 };
 
@@ -122,6 +139,7 @@ export function renderAppHtml(input: RenderAppHtmlInput): string {
         ${renderContent(input.state, {
           dashboard: viewModel,
           taskCenter: input.taskCenter,
+          runDetail: input.runDetail,
           error: input.error
         })}
       </main>
@@ -134,6 +152,7 @@ function renderContent(
   content: {
     dashboard?: ReturnType<typeof createDashboardViewModel>;
     taskCenter?: NonNullable<RenderAppHtmlInput["taskCenter"]>;
+    runDetail?: NonNullable<RenderAppHtmlInput["runDetail"]>;
     error?: unknown;
   }
 ): string {
@@ -153,6 +172,10 @@ function renderContent(
 
   if (content.taskCenter) {
     return renderTaskCenterContent(content.taskCenter);
+  }
+
+  if (content.runDetail) {
+    return renderRunDetailContent(content.runDetail);
   }
 
   if (!content.dashboard) {
@@ -190,6 +213,73 @@ function renderContent(
           <span>${escapeHtml(approval.reason)}</span>
         </div>
       `).join("")}
+    </section>
+  `;
+}
+
+function renderRunDetailContent(
+  runDetail: NonNullable<RenderAppHtmlInput["runDetail"]>
+): string {
+  const viewModel = createRunDetailViewModel(
+    runDetail.trace,
+    runDetail.selectedEventId
+  );
+
+  return `
+    <section class="metrics-grid">
+      <article><span>Run</span><strong>${escapeHtml(viewModel.header.runId)}</strong></article>
+      <article><span>Status</span><strong>${escapeHtml(viewModel.header.status.label)}</strong></article>
+      <article><span>Events</span><strong>${viewModel.header.eventCount}</strong></article>
+    </section>
+    ${viewModel.failure ? `
+      <section class="panel failure-panel" role="alert">
+        <h2>Failure module</h2>
+        <p><strong>${escapeHtml(viewModel.failure.module)}</strong> · ${escapeHtml(viewModel.failure.message)}</p>
+      </section>
+    ` : ""}
+    <section class="run-detail-grid">
+      <div class="panel">
+        <h2>Trace Timeline</h2>
+        <ol class="timeline">
+          ${viewModel.timeline.map((event) => `
+            <li class="timeline-item timeline-${escapeHtml(event.severity)}${event.selected ? " is-selected" : ""}">
+              <div>
+                <span class="timeline-sequence">${event.sequence}</span>
+                <strong>${escapeHtml(event.title)}</strong>
+                <p>${escapeHtml(event.summary)}</p>
+                <span>${escapeHtml(event.timestamp)} · ${escapeHtml(event.kind)}</span>
+              </div>
+              ${event.hasOutputRef && event.outputRefHref
+                ? `<a href="${event.outputRefHref}">查看输出引用</a>`
+                : ""}
+            </li>
+          `).join("")}
+        </ol>
+      </div>
+      <aside class="panel event-detail" aria-label="Event Detail Panel">
+        <h2>Event Detail Panel</h2>
+        ${viewModel.selectedEvent ? `
+          <dl>
+            <dt>Type</dt>
+            <dd>${escapeHtml(viewModel.selectedEvent.type)}</dd>
+            <dt>Summary</dt>
+            <dd>${escapeHtml(viewModel.selectedEvent.summary)}</dd>
+            ${viewModel.selectedEvent.tool ? `
+              <dt>Tool</dt>
+              <dd>${escapeHtml(viewModel.selectedEvent.tool)}</dd>
+            ` : ""}
+            ${viewModel.selectedEvent.inputJson ? `
+              <dt>Input</dt>
+              <dd><pre><code>${escapeHtml(viewModel.selectedEvent.inputJson)}</code></pre></dd>
+            ` : ""}
+            ${viewModel.selectedEvent.outputRefHref ? `
+              <dt>Output ref</dt>
+              <dd><a href="${viewModel.selectedEvent.outputRefHref}">${escapeHtml(viewModel.selectedEvent.outputRef ?? "")}</a></dd>
+            ` : ""}
+          </dl>
+        ` : "<p>请选择一个事件</p>"}
+        <a class="replay-link" href="${viewModel.replayCaseHref}">Replay Case</a>
+      </aside>
     </section>
   `;
 }
@@ -301,6 +391,17 @@ function renderSortOptions(current: string): string {
   return options.map((option) =>
     `<option value="${option.value}"${option.value === current ? " selected" : ""}>${option.label}</option>`
   ).join("");
+}
+
+function parseRunPath(pathname: string): { taskId: string; runId: string } | undefined {
+  const match = pathname.match(/^\/tasks\/([^/]+)\/runs\/([^/]+)$/);
+  if (!match) {
+    return undefined;
+  }
+  return {
+    taskId: decodeURIComponent(match[1]),
+    runId: decodeURIComponent(match[2])
+  };
 }
 
 function stateLabel(state: RenderState): string {

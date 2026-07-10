@@ -17,6 +17,7 @@ export type RunTimelineItemViewModel = {
   badge: BadgeViewModel;
   selected: boolean;
   hasOutputRef: boolean;
+  outputRefHref?: string;
 };
 
 export type RunEventDetailViewModel = RunTraceEventDto & {
@@ -61,7 +62,8 @@ export function createRunDetailViewModel(
       severity: event.severity,
       badge: createBadge({ label: event.type, tone: severityTone(event.severity) }),
       selected: event.id === selectedEventId,
-      hasOutputRef: Boolean(event.outputRef)
+      hasOutputRef: Boolean(event.outputRef),
+      ...(event.outputRef ? { outputRefHref: API_ENDPOINTS.toolOutput(event.outputRef) } : {})
     })),
     selectedEvent: selectedEvent ? toEventDetail(selectedEvent) : undefined,
     failure: trace.failure,
