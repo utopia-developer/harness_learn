@@ -13,12 +13,19 @@ import type {
   ListTasksQuery,
   ListTasksResponse,
   MetricsSummaryResponse,
+  PluginActionResponse,
+  PolicySimulationRequest,
+  PolicySimulationResponse,
+  ProjectPolicyResponse,
   ReplayCaseResponse,
   ReleaseGateActionResponse,
   ReleaseReadinessResponse,
   ReleaseSummaryResponse,
   RunTraceResponse,
+  TeamPluginDto,
+  TeamPluginsResponse,
   TaskCenterTaskDto,
+  UpdateProjectPolicyRequest,
   ToolOutputResponse
 } from "../../../../../packages/contracts/src/index.js";
 
@@ -157,6 +164,54 @@ const mockReleases: ListReleasesResponse = {
   total: 2
 };
 
+const mockProjectPolicy: ProjectPolicyResponse = {
+  project: {
+    id: "project-harness",
+    teamId: "team-platform",
+    name: "Harness Platform"
+  },
+  policy: {
+    allowedTools: ["read_file", "search_text"],
+    allowedModels: ["gpt-5-mini"]
+  },
+  availableTools: ["read_file", "search_text", "run_command", "write_file"],
+  availableModels: ["gpt-5", "gpt-5-mini", "claude-3-opus"]
+};
+
+const mockPlugins: TeamPluginsResponse = {
+  teamId: "team-platform",
+  plugins: [
+    {
+      id: "review-pack",
+      name: "Review Pack",
+      version: "1.0.0",
+      tools: ["read_file", "search_text"],
+      skills: ["code-review"],
+      installed: true,
+      enabled: true
+    },
+    {
+      id: "ops-pack",
+      name: "Ops Pack",
+      version: "1.0.0",
+      tools: ["run_command"],
+      skills: ["incident-response"],
+      installed: true,
+      enabled: false
+    },
+    {
+      id: "research-pack",
+      name: "Research Pack",
+      version: "1.0.0",
+      tools: ["search_text"],
+      skills: ["deep-research"],
+      installed: false,
+      enabled: false
+    }
+  ],
+  sharedSkills: ["code-review"]
+};
+
 export function createMockApiClient(): ApiClient {
   return {
     async getHealth(): Promise<HealthResponse> {
@@ -212,6 +267,59 @@ export function createMockApiClient(): ApiClient {
     },
     async getReleaseAuditJsonl(): Promise<string> {
       return "{\"action\":\"release.gate.started\"}\n{\"action\":\"release.gate.completed\"}";
+    },
+    async getProjectPolicy(): Promise<ProjectPolicyResponse> {
+      return mockProjectPolicy;
+    },
+    async updateProjectPolicy(
+      _projectId: string,
+      input: UpdateProjectPolicyRequest
+    ): Promise<ProjectPolicyResponse> {
+      return {
+        ...mockProjectPolicy,
+        policy: {
+          allowedTools: [...input.allowedTools],
+          allowedModels: [...input.allowedModels]
+        }
+      };
+    },
+    async simulateProjectPolicy(
+      projectId: string,
+      input: PolicySimulationRequest
+    ): Promise<PolicySimulationResponse> {
+      const tool = input.tool ?? "";
+      const model = input.model ?? "";
+      const toolAllowed = mockProjectPolicy.policy.allowedTools.includes(tool);
+      const modelAllowed = mockProjectPolicy.policy.allowedModels.includes(model);
+      return {
+        projectId,
+        tool: {
+          name: tool,
+          allowed: toolAllowed,
+          reason: toolAllowed
+            ? `Tool ${tool} is allowed by project policy.`
+            : `Tool ${tool} is not allowed by project policy.`
+        },
+        model: {
+          name: model,
+          allowed: modelAllowed,
+          reason: modelAllowed
+            ? `Model ${model} is allowed by project policy.`
+            : `Model ${model} is not allowed by project policy.`
+        }
+      };
+    },
+    async listTeamPlugins(): Promise<TeamPluginsResponse> {
+      return mockPlugins;
+    },
+    async installTeamPlugin(_teamId: string, pluginId: string): Promise<PluginActionResponse> {
+      return pluginAction(pluginId, true, false, "installed");
+    },
+    async enableTeamPlugin(_teamId: string, pluginId: string): Promise<PluginActionResponse> {
+      return pluginAction(pluginId, true, true, "enabled");
+    },
+    async disableTeamPlugin(_teamId: string, pluginId: string): Promise<PluginActionResponse> {
+      return pluginAction(pluginId, true, false, "disabled");
     },
     async getReleaseSummary(): Promise<ReleaseSummaryResponse> {
       return {
@@ -299,6 +407,28 @@ export function createMockApiClient(): ApiClient {
         }
       };
     }
+  };
+}
+
+function pluginAction(
+  pluginId: string,
+  installed: boolean,
+  enabled: boolean,
+  action: string
+): PluginActionResponse {
+  const plugin = mockPlugins.plugins.find((item) => item.id === pluginId) ?? mockPlugins.plugins[0];
+  const updated: TeamPluginDto = {
+    ...plugin,
+    installed,
+    enabled
+  };
+  return {
+    teamId: mockPlugins.teamId,
+    plugin: updated,
+    sharedSkills: enabled
+      ? [...new Set([...mockPlugins.sharedSkills, ...updated.skills])]
+      : mockPlugins.sharedSkills,
+    message: `Plugin ${pluginId} ${action}.`
   };
 }
 

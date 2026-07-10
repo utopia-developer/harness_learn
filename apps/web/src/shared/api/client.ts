@@ -12,11 +12,17 @@ import {
   type ListTasksQuery,
   type ListTasksResponse,
   type MetricsSummaryResponse,
+  type PluginActionResponse,
+  type PolicySimulationRequest,
+  type PolicySimulationResponse,
+  type ProjectPolicyResponse,
   type ReplayCaseResponse,
   type ReleaseGateActionResponse,
   type ReleaseReadinessResponse,
   type ReleaseSummaryResponse,
   type RunTraceResponse,
+  type TeamPluginsResponse,
+  type UpdateProjectPolicyRequest,
   type ToolOutputResponse
 } from "../../../../../packages/contracts/src/index.js";
 
@@ -34,6 +40,13 @@ export type ApiClient = {
   getReleaseReadiness(releaseId: string): Promise<ReleaseReadinessResponse>;
   runReleaseGate(releaseId: string): Promise<ReleaseGateActionResponse>;
   getReleaseAuditJsonl(releaseId: string): Promise<string>;
+  getProjectPolicy(projectId: string): Promise<ProjectPolicyResponse>;
+  updateProjectPolicy(projectId: string, input: UpdateProjectPolicyRequest): Promise<ProjectPolicyResponse>;
+  simulateProjectPolicy(projectId: string, input: PolicySimulationRequest): Promise<PolicySimulationResponse>;
+  listTeamPlugins(teamId: string): Promise<TeamPluginsResponse>;
+  installTeamPlugin(teamId: string, pluginId: string): Promise<PluginActionResponse>;
+  enableTeamPlugin(teamId: string, pluginId: string): Promise<PluginActionResponse>;
+  disableTeamPlugin(teamId: string, pluginId: string): Promise<PluginActionResponse>;
   getReleaseSummary(): Promise<ReleaseSummaryResponse>;
   getMetricsSummary(): Promise<MetricsSummaryResponse>;
   getRunTrace(taskId: string, runId: string): Promise<RunTraceResponse>;
@@ -100,6 +113,53 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
         fetchImpl,
         baseUrl,
         API_ENDPOINTS.releaseAuditJsonl(releaseId)
+      ),
+    getProjectPolicy: (projectId) =>
+      getJson<ProjectPolicyResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.projectPolicy(projectId)
+      ),
+    updateProjectPolicy: (projectId, input) =>
+      putJson<ProjectPolicyResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.projectPolicy(projectId),
+        input
+      ),
+    simulateProjectPolicy: (projectId, input) =>
+      postJson<PolicySimulationResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.simulateProjectPolicy(projectId),
+        input
+      ),
+    listTeamPlugins: (teamId) =>
+      getJson<TeamPluginsResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.teamPlugins(teamId)
+      ),
+    installTeamPlugin: (teamId, pluginId) =>
+      postJson<PluginActionResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.installTeamPlugin(teamId, pluginId),
+        {}
+      ),
+    enableTeamPlugin: (teamId, pluginId) =>
+      postJson<PluginActionResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.enableTeamPlugin(teamId, pluginId),
+        {}
+      ),
+    disableTeamPlugin: (teamId, pluginId) =>
+      postJson<PluginActionResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.disableTeamPlugin(teamId, pluginId),
+        {}
       ),
     getReleaseSummary: () =>
       getJson<ReleaseSummaryResponse>(
@@ -199,6 +259,25 @@ async function postJson<T>(
 ): Promise<T> {
   const response = await fetchImpl(`${baseUrl}${endpoint}`, {
     method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+  return await response.json() as T;
+}
+
+async function putJson<T>(
+  fetchImpl: typeof fetch,
+  baseUrl: string,
+  endpoint: string,
+  body: unknown
+): Promise<T> {
+  const response = await fetchImpl(`${baseUrl}${endpoint}`, {
+    method: "PUT",
     headers: {
       "content-type": "application/json"
     },
