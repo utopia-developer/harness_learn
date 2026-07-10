@@ -8,6 +8,8 @@ import {
   type ConsoleDashboardResponse,
   type CreateTaskRequest,
   type CreateTaskResponse,
+  type FrontendAuditEventRequest,
+  type FrontendAuditEventResponse,
   type ListReleasesResponse,
   type ListTasksQuery,
   type ListTasksResponse,
@@ -24,9 +26,11 @@ import {
   type ReleaseReadinessResponse,
   type ReleaseSummaryResponse,
   type RunTraceResponse,
+  type SessionResponse,
   type TeamPluginsResponse,
   type UpdateProjectPolicyRequest,
-  type ToolOutputResponse
+  type ToolOutputResponse,
+  type UserRole
 } from "../../../../../packages/contracts/src/index.js";
 
 export type HealthResponse = {
@@ -36,6 +40,8 @@ export type HealthResponse = {
 
 export type ApiClient = {
   getHealth(): Promise<HealthResponse>;
+  getSession(): Promise<SessionResponse>;
+  recordFrontendAudit(input: FrontendAuditEventRequest): Promise<FrontendAuditEventResponse>;
   getConsoleDashboard(): Promise<ConsoleDashboardResponse>;
   listTasks(query?: ListTasksQuery): Promise<ListTasksResponse>;
   createTask(input: CreateTaskRequest): Promise<CreateTaskResponse>;
@@ -68,14 +74,32 @@ export type ApiClient = {
 export type ApiClientOptions = {
   baseUrl?: string;
   fetch?: typeof fetch;
+  session?: {
+    userId?: string;
+    role?: UserRole;
+  };
 };
 
 export function createApiClient(options: ApiClientOptions = {}): ApiClient {
-  const fetchImpl = options.fetch ?? fetch;
+  const rawFetch = options.fetch ?? fetch;
+  const fetchImpl = createSessionFetch(rawFetch, options.session);
   const baseUrl = options.baseUrl ?? "";
 
   return {
     getHealth: () => getJson<HealthResponse>(fetchImpl, baseUrl, API_ENDPOINTS.health),
+    getSession: () =>
+      getJson<SessionResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.session
+      ),
+    recordFrontendAudit: (input) =>
+      postJson<FrontendAuditEventResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.frontendAuditEvents,
+        input
+      ),
     getConsoleDashboard: () =>
       getJson<ConsoleDashboardResponse>(
         fetchImpl,
@@ -248,6 +272,41 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
         API_ENDPOINTS.applyPolicySuggestion(suggestionId),
         {}
       )
+  };
+}
+
+function createSessionFetch(
+  fetchImpl: typeof fetch,
+  session?: ApiClientOptions["session"]
+): typeof fetch {
+  const sessionHeaders = createSessionHeaders(session);
+  if (Object.keys(sessionHeaders).length === 0) {
+    return fetchImpl;
+  }
+  return ((input: string | URL | Request, init?: RequestInit) =>
+    fetchImpl(input, mergeHeaders(init, sessionHeaders))) as typeof fetch;
+}
+
+function createSessionHeaders(
+  session?: ApiClientOptions["session"]
+): Record<string, string> {
+  return {
+    ...(session?.userId ? { "x-harness-user-id": session.userId } : {}),
+    ...(session?.role ? { "x-harness-role": session.role } : {})
+  };
+}
+
+function mergeHeaders(
+  init: RequestInit | undefined,
+  sessionHeaders: Record<string, string>
+): RequestInit {
+  const headers = new Headers(init?.headers);
+  for (const [name, value] of Object.entries(sessionHeaders)) {
+    headers.set(name, value);
+  }
+  return {
+    ...init,
+    headers
   };
 }
 

@@ -3,6 +3,8 @@ import type {
   ConsoleDashboardResponse,
   CreateTaskRequest,
   CreateTaskResponse,
+  FrontendAuditEventRequest,
+  FrontendAuditEventResponse,
   ApprovalActionRequest,
   ApprovalActionResponse,
   ApprovalDto,
@@ -25,6 +27,7 @@ import type {
   ReleaseReadinessResponse,
   ReleaseSummaryResponse,
   RunTraceResponse,
+  SessionResponse,
   TeamPluginDto,
   TeamPluginsResponse,
   TaskCenterTaskDto,
@@ -286,6 +289,36 @@ export function createMockApiClient(): ApiClient {
       return {
         status: "ok",
         service: "harness-api"
+      };
+    },
+    async getSession(): Promise<SessionResponse> {
+      return {
+        user: {
+          id: "user-demo",
+          name: "Harness Admin",
+          role: "admin"
+        },
+        permissions: {
+          canEditPolicy: true,
+          canApproveDangerous: true,
+          canManagePlugins: true
+        }
+      };
+    },
+    async recordFrontendAudit(
+      input: FrontendAuditEventRequest
+    ): Promise<FrontendAuditEventResponse> {
+      return {
+        event: {
+          id: "frontend-audit-mock",
+          actorId: "user-demo",
+          role: "admin",
+          action: input.action,
+          target: input.target,
+          route: input.route,
+          metadata: input.metadata ?? {},
+          recordedAt: "2026-07-10T00:00:00.000Z"
+        }
       };
     },
     async getConsoleDashboard(): Promise<ConsoleDashboardResponse> {

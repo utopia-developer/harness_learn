@@ -38,3 +38,33 @@ F8 closes the frontend product loop for production hardening:
 ### Issues Encountered
 
 - The initial red test failed at compile time because the shared contracts and request header shape did not exist yet. This was expected and confirmed the missing integration points before implementation.
+
+## Feature 2: Web Session Client, Audit Client and Session View Model
+
+### What Changed
+
+- Extended `createApiClient` with optional `session` context:
+  - `userId` is sent as `x-harness-user-id`.
+  - `role` is sent as `x-harness-role`.
+- Added web client methods:
+  - `getSession()`
+  - `recordFrontendAudit(input)`
+- Added session-aware request header injection while preserving existing API client call sites.
+- Updated the mock API client with default admin session and mock frontend audit responses.
+- Added `createSessionViewModel()` to translate backend session permissions into UI affordances.
+
+### Design Notes
+
+- Header injection is centralized in the API client factory so feature pages do not manually attach RBAC headers.
+- The session view model returns permission booleans and readonly messages. Pages can disable controls and explain restrictions without duplicating role logic.
+- The mock API client uses admin by default to keep local static rendering and existing page tests aligned with the demo environment.
+
+### Verification
+
+- `npm run test:web`
+  - Result: 39 tests passed.
+  - Coverage added for session header propagation, session endpoint usage, frontend audit posting, and role-to-UI permission mapping.
+
+### Issues Encountered
+
+- The first web red test failed because `ApiClientOptions.session`, `getSession()`, `recordFrontendAudit()`, and the session view-model module did not exist. This confirmed the intended web integration surface before implementation.
