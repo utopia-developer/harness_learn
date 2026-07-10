@@ -134,3 +134,30 @@
 
 - `/releases` 没有明确 releaseId 时需要避免空白页。
 - 处理方式：先拉取 release list，若路径未指定 releaseId，则默认展示列表第一条 release 的 readiness。
+
+## F5 总体验收
+
+### 已完成范围
+
+- `/releases` 页面：已接入共享 App Shell，并默认展示第一条 release 的 readiness。
+- `/releases/:releaseId` 页面：已渲染指定 release 的发布就绪详情。
+- 发布列表：展示 release 标题、版本、生成时间和 ready / blocked 状态。
+- Gate checks：展示 Eval、成本和质量检查结果。
+- Blocked reasons：blocked release 给出明确阻塞原因。
+- Evidence table：展示审计事件数量、Trace IDs 和 Audit JSONL 导出链接。
+- Run gate：页面表单通过前端 API client 调用真实 API，并刷新 readiness。
+- 端到端闭环：release list、readiness、run gate、audit JSONL 和页面渲染均通过真实 API gateway 验证。
+
+### 最终验证
+
+- `npm test`：143 个测试全部通过。
+- `npm run test:web`：29 个 web 测试全部通过。
+- `npm run test:e2e`：5 个端到端测试全部通过。
+- `npm run build:web`：通过。
+
+### 未完成或后续增强
+
+- 当前 release 数据通过 API gateway 内存 store seed，后续需要接入持久化 ReleaseStore、EvalStore、CostQualityDashboard 和 AuditLog。
+- 当前 Run gate 为同步返回刷新结果，后续生产化需要支持后台 gate job、运行中状态和失败重试。
+- 当前 Audit JSONL 直接返回完整文本，后续需要支持大文件分页、签名下载或对象存储引用。
+- 当前页面使用静态 HTML 渲染模式，后续接入 React/Vite 后应迁移为组件化页面并保留同等契约测试。
