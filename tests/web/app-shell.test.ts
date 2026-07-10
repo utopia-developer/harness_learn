@@ -6,19 +6,20 @@ import {
   createAppShellViewModel
 } from "../../apps/web/src/app/shell.js";
 
-test("app shell registers five core pages with shared navigation", () => {
+test("app shell registers six core pages with shared navigation", () => {
   assert.deepEqual(APP_PAGES.map((page: { id: string }) => page.id), [
     "tasks",
     "approvals",
     "release-readiness",
+    "metrics",
     "policy",
     "plugins"
   ]);
 
-  const shell = createAppShellViewModel("/approvals");
-  assert.equal(shell.navigation.length, 5);
-  assert.equal(shell.navigation[1].active, true);
-  assert.equal(shell.navigation[1].ariaCurrent, "page");
+  const shell = createAppShellViewModel("/metrics");
+  assert.equal(shell.navigation.length, 6);
+  assert.equal(shell.navigation[3].active, true);
+  assert.equal(shell.navigation[3].ariaCurrent, "page");
   assert.equal(shell.navigation[0].ariaCurrent, undefined);
 });
 

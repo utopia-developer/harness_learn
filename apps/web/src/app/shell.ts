@@ -4,6 +4,7 @@ export type AppPageId =
   | "tasks"
   | "approvals"
   | "release-readiness"
+  | "metrics"
   | "policy"
   | "plugins";
 
@@ -54,6 +55,13 @@ export const APP_PAGES: AppPage[] = [
     description: "聚合评测、成本、质量和策略检查结果。"
   },
   {
+    id: "metrics",
+    label: "指标",
+    href: WEB_ROUTES.metrics,
+    title: "指标分析",
+    description: "分析模型成本、工具成本、质量趋势和运行效率。"
+  },
+  {
     id: "policy",
     label: "策略",
     href: WEB_ROUTES.policy,
@@ -95,6 +103,9 @@ function findCurrentPage(pathname: string): AppPage {
   }
   if (pathname.startsWith("/releases")) {
     return pageById("release-readiness");
+  }
+  if (pathname.startsWith("/metrics")) {
+    return pageById("metrics");
   }
   if (pathname.startsWith("/settings/policy")) {
     return pageById("policy");

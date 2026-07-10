@@ -3,6 +3,9 @@ import type {
   ApprovalQueueResponse,
   ListReleasesResponse,
   ListTasksResponse,
+  MetricsCostResponse,
+  MetricsQualityResponse,
+  MetricsRuntimeResponse,
   MetricsSummaryResponse,
   PolicySimulationResponse,
   ProjectPolicyResponse,
@@ -19,6 +22,7 @@ import {
 import type { ApiClient } from "../shared/api/client.js";
 import { createApprovalQueueViewModel } from "../features/approvals/approval-queue-view-model.js";
 import { createDashboardViewModel } from "../features/console/dashboard-view-model.js";
+import { createMetricsViewModel } from "../features/metrics/metrics-view-model.js";
 import { createReleaseReadinessViewModel } from "../features/releases/release-readiness-view-model.js";
 import { createRunDetailViewModel } from "../features/runs/run-detail-view-model.js";
 import { createPluginsViewModel } from "../features/settings/plugins-view-model.js";
@@ -85,6 +89,24 @@ export async function renderApp(root: HTMLElement, client: ApiClient): Promise<v
         pluginsSettings
       });
       bindPluginForms(root, client, pathname);
+      return;
+    }
+
+    if (pathname.startsWith("/metrics")) {
+      const [cost, quality, runtime] = await Promise.all([
+        client.getMetricsCost(defaultProjectId),
+        client.getMetricsQuality(defaultProjectId),
+        client.getMetricsRuntime(defaultProjectId)
+      ]);
+      root.innerHTML = renderAppHtml({
+        state: "ready",
+        pathname,
+        metrics: {
+          cost,
+          quality,
+          runtime
+        }
+      });
       return;
     }
 
@@ -183,6 +205,11 @@ export type RenderAppHtmlInput = {
     simulation?: PolicySimulationResponse;
   };
   pluginsSettings?: TeamPluginsResponse;
+  metrics?: {
+    cost: MetricsCostResponse;
+    quality: MetricsQualityResponse;
+    runtime: MetricsRuntimeResponse;
+  };
   error?: unknown;
 };
 
@@ -217,6 +244,7 @@ export function renderAppHtml(input: RenderAppHtmlInput): string {
           releaseReadiness: input.releaseReadiness,
           policySettings: input.policySettings,
           pluginsSettings: input.pluginsSettings,
+          metrics: input.metrics,
           error: input.error
         })}
       </main>
@@ -234,6 +262,7 @@ function renderContent(
     releaseReadiness?: NonNullable<RenderAppHtmlInput["releaseReadiness"]>;
     policySettings?: NonNullable<RenderAppHtmlInput["policySettings"]>;
     pluginsSettings?: TeamPluginsResponse;
+    metrics?: NonNullable<RenderAppHtmlInput["metrics"]>;
     error?: unknown;
   }
 ): string {
@@ -273,6 +302,10 @@ function renderContent(
 
   if (content.pluginsSettings) {
     return renderPluginsSettingsContent(content.pluginsSettings);
+  }
+
+  if (content.metrics) {
+    return renderMetricsContent(content.metrics);
   }
 
   if (!content.dashboard) {
@@ -868,6 +901,84 @@ function renderPluginsSettingsContent(pluginsSettings: TeamPluginsResponse): str
           : "<p>暂无共享 Skill</p>"}
       </aside>
     </section>
+  `;
+}
+
+function renderMetricsContent(metrics: NonNullable<RenderAppHtmlInput["metrics"]>): string {
+  const viewModel = createMetricsViewModel(metrics);
+
+  return `
+    <section class="metrics-grid">
+      <article><span>Total cost</span><strong>${escapeHtml(viewModel.summary.totalCost)}</strong></article>
+      <article><span>Eval pass rate</span><strong>${escapeHtml(viewModel.summary.passRate)}</strong></article>
+      <article><span>Run success</span><strong>${escapeHtml(viewModel.summary.successRate)}</strong></article>
+    </section>
+    <section class="metrics-layout">
+      <div class="panel metrics-panel">
+        <h2>Metrics</h2>
+        <p>${escapeHtml(viewModel.projectId)} · Average iterations ${escapeHtml(viewModel.summary.averageIterations)}</p>
+        <section class="cost-breakdown-grid">
+          ${renderCostBreakdown("Model cost", viewModel.cost.modelCost, viewModel.cost.byModel)}
+          ${renderCostBreakdown("Tool cost", viewModel.cost.toolCost, viewModel.cost.byTool)}
+          ${renderCostBreakdown("Skill attribution", viewModel.summary.totalCost, viewModel.cost.bySkill)}
+        </section>
+      </div>
+      <aside class="panel metrics-panel" aria-label="Runtime health">
+        <h2>Runtime health</h2>
+        <dl class="metrics-kv">
+          <dt>Total runs</dt>
+          <dd>${viewModel.runtime.totalRuns}</dd>
+          <dt>Average approval wait</dt>
+          <dd>${escapeHtml(viewModel.runtime.averageApprovalWait)}</dd>
+        </dl>
+        <div class="runtime-status-grid">
+          ${viewModel.runtime.byStatus.map((status) => `
+            <article>
+              <span class="badge badge-${escapeHtml(status.tone)}">${escapeHtml(status.label)}</span>
+              <strong>${status.value}</strong>
+            </article>
+          `).join("")}
+        </div>
+      </aside>
+    </section>
+    <section class="panel metrics-panel">
+      <h2>Quality trend</h2>
+      <p>${viewModel.quality.totalRuns} runs · Average score ${escapeHtml(viewModel.quality.averageScore)}</p>
+      <ol class="quality-list">
+        ${viewModel.quality.points.map((point) => `
+          <li class="quality-item quality-${escapeHtml(point.tone)}">
+            <div>
+              <strong>${escapeHtml(point.suiteId)}</strong>
+              <span>${escapeHtml(point.timestamp)} · score ${escapeHtml(point.score)}</span>
+            </div>
+            <span class="badge badge-${escapeHtml(point.tone)}">${escapeHtml(point.result)}</span>
+          </li>
+        `).join("")}
+      </ol>
+    </section>
+  `;
+}
+
+function renderCostBreakdown(
+  title: string,
+  total: string,
+  items: Array<{ label: string; value: string }>
+): string {
+  return `
+    <article class="cost-breakdown">
+      <div>
+        <h3>${escapeHtml(title)}</h3>
+        <strong>${escapeHtml(total)}</strong>
+      </div>
+      <ul>
+        ${items.map((item) => `
+          <li>
+            <span>${escapeHtml(item.label)}</span>
+            <strong>${escapeHtml(item.value)}</strong>
+          </li>
+        `).join("")}
+      </ul>
+    </article>
   `;
 }
 

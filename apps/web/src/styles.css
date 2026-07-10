@@ -437,6 +437,131 @@ h2 {
   padding-left: 18px;
 }
 
+.metrics-layout {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.8fr);
+}
+
+.metrics-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.metrics-panel > p {
+  color: #5b6c65;
+  margin-bottom: 0;
+}
+
+.cost-breakdown-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cost-breakdown {
+  border: 1px solid #d7dfda;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.cost-breakdown h3 {
+  font-size: 15px;
+  margin: 0 0 6px;
+}
+
+.cost-breakdown ul {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cost-breakdown li {
+  align-items: center;
+  border-top: 1px solid #edf1ee;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding-top: 8px;
+}
+
+.cost-breakdown span {
+  color: #5b6c65;
+  overflow-wrap: anywhere;
+}
+
+.metrics-kv {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  margin: 0;
+}
+
+.metrics-kv dt {
+  color: #5b6c65;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.metrics-kv dd {
+  margin: 0;
+}
+
+.runtime-status-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.runtime-status-grid article {
+  border: 1px solid #d7dfda;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.quality-list {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.quality-item {
+  align-items: start;
+  border: 1px solid #d7dfda;
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.quality-item span {
+  color: #5b6c65;
+  display: block;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.quality-danger {
+  background: #fff7f6;
+  border-color: #dca8a8;
+}
+
+.quality-success {
+  background: #f4fbf6;
+  border-color: #abd7bb;
+}
+
 .approval-list {
   display: grid;
   gap: 10px;
@@ -767,6 +892,7 @@ button {
   .approval-layout,
   .release-layout,
   .settings-layout,
+  .metrics-layout,
   .approval-actions {
     grid-template-columns: 1fr;
   }
@@ -776,6 +902,11 @@ button {
   }
 
   .settings-options {
+    grid-template-columns: 1fr;
+  }
+
+  .cost-breakdown-grid,
+  .runtime-status-grid {
     grid-template-columns: 1fr;
   }
 }

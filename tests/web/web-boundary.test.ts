@@ -10,6 +10,7 @@ test("web navigation uses product routes from contracts", () => {
     "/tasks",
     "/approvals",
     "/releases/current",
+    "/metrics",
     "/settings/policy",
     "/settings/plugins"
   ]);

@@ -268,3 +268,45 @@ test("frontend renders governance settings and updates policy and plugins", asyn
   assert.match(pluginsHtml, /Plugin Registry/);
   assert.match(pluginsHtml, /deep-research/);
 });
+
+test("frontend renders metrics dashboard from cost, quality and runtime APIs", async () => {
+  const client = createApiClient({
+    baseUrl: "http://harness.local",
+    fetch: async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const response = await handleApiRequest({
+        method: init?.method ?? "GET",
+        url,
+        body: init?.body ? JSON.parse(String(init.body)) : undefined
+      });
+
+      return new Response(JSON.stringify(response.body), {
+        status: response.statusCode,
+        headers: response.headers
+      });
+    }
+  });
+
+  const [cost, quality, runtime] = await Promise.all([
+    client.getMetricsCost("project-harness"),
+    client.getMetricsQuality("project-harness"),
+    client.getMetricsRuntime("project-harness")
+  ]);
+  const html = renderAppHtml({
+    state: "ready",
+    pathname: "/metrics",
+    metrics: {
+      cost,
+      quality,
+      runtime
+    }
+  });
+
+  assert.equal(cost.bySkill[0].name, "code-review");
+  assert.equal(quality.passRate, 0.75);
+  assert.equal(runtime.successRate, 0.8);
+  assert.match(html, /Metrics/);
+  assert.match(html, /gpt-5-mini/);
+  assert.match(html, /nightly-regression/);
+  assert.match(html, /Runtime health/);
+});

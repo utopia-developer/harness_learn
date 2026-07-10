@@ -86,3 +86,48 @@
 
 - F7 扩展 `ApiClient` 后，mock client 必须同步补齐 metrics 方法，否则 `createMockApiClient()` 不满足接口。
 - 处理方式：mock 数据复用真实契约 DTO，保证真实 API 与 mock API 形状一致。
+
+## 功能点 3：Metrics 页面渲染与 e2e
+
+### 目标
+
+- `/metrics` 页面实际渲染成本、质量和 runtime 指标。
+- App Shell 导航新增 Metrics 入口。
+- 页面展示：
+  - 总成本、Eval 通过率、Run 成功率。
+  - 模型成本、工具成本、Skill 成本归因。
+  - Eval 质量趋势。
+  - Run 状态分布、平均迭代次数和平均审批等待时长。
+- e2e 验证前端通过真实 API gateway 拉取三类指标后渲染页面。
+
+### 实现
+
+- 更新 `apps/web/src/app/shell.ts`。
+  - 新增 `metrics` 页面和导航项。
+  - `/metrics` 路径激活 Metrics 导航。
+- 更新 `apps/web/src/app/render.ts`。
+  - `/metrics` 路径并行调用 `client.getMetricsCost()`、`client.getMetricsQuality()`、`client.getMetricsRuntime()`。
+  - `renderAppHtml()` 支持 `metrics` 输入。
+  - 新增 Metrics 页面内容渲染：
+    - 顶部指标卡。
+    - 成本归因卡。
+    - Runtime health 卡。
+    - Quality trend 列表。
+- 更新 `apps/web/src/styles.css`。
+  - 增加 metrics 布局、成本归因、runtime 状态格和质量趋势样式。
+- 更新 `tests/web/web-boundary.test.ts`。
+  - 将 `/metrics` 纳入前端产品路由边界。
+
+### 测试验证
+
+- 更新 `tests/web/app-shell.test.ts`。
+- 新增 `tests/web/metrics-render.test.ts`。
+- 更新 `tests/e2e/frontend-api.e2e.test.ts`。
+- 验证命令：
+  - `npm run test:web`：37 个 web 测试全部通过。
+  - `npm run test:e2e`：7 个端到端测试全部通过。
+
+### 问题记录
+
+- 新增 `/metrics` 导航后，`tests/web/web-boundary.test.ts` 仍只接受原有 5 条路由。
+- 处理方式：同步更新边界测试，明确 `/metrics` 属于产品路由契约的一部分。
