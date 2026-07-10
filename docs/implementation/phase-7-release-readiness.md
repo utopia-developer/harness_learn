@@ -58,3 +58,40 @@
 
 - TDD 红灯阶段出现预期内的 `release-gate` 模块缺失错误。
 - 当前实现保持为纯函数，便于后续接入 CLI、CI 或服务端 API。
+
+## 功能点 3：发布就绪报告
+
+### 目标
+
+- 将发布准入 Gate 的结果沉淀为一份可归档、可审计、可展示的发布报告。
+- 报告必须包含发布状态、阻塞原因、检查明细和证据引用。
+- 审计证据按项目过滤，避免跨项目事件泄漏到当前发布报告。
+
+### 实现
+
+- 新增 `src/release/readiness-report.ts`。
+- `createReleaseReadinessReport` 接收 `ReleaseGateResult`、`AuditLog`、`traceIds` 和发布元数据。
+- 当 Gate 通过时输出 `status: "ready"`；失败时输出 `status: "blocked"` 并生成 `blockers`。
+- `evidence` 中包含：
+  - 当前项目审计事件数量。
+  - 当前项目审计事件 JSONL。
+  - 关联 trace id 列表。
+- 若报告项目与 Gate 项目不一致，直接抛错，避免错误归档。
+
+### 测试验证
+
+- 新增 `tests/release/readiness-report.test.ts`。
+- 覆盖 ready 报告、blocked 报告、项目级审计事件过滤。
+- 验证命令：`npm test`。
+- 当前结果：79 个测试全部通过。
+
+### 问题记录
+
+- TDD 红灯阶段出现预期内的 `readiness-report` 模块缺失错误。
+- 当前报告层没有引入外部存储，证据归档先以纯对象和 JSONL 字符串表达，便于后续接入文件、数据库或 CI artifact。
+
+## 阶段 7 闭环
+
+- 项目策略通过 `createProjectScopedToolRegistry` 和 `assertProjectModelAllowed` 进入运行前装配。
+- 评测、成本、质量通过 `runReleaseGate` 形成发布准入判断。
+- 发布准入判断与审计、trace 证据通过 `createReleaseReadinessReport` 形成可归档报告。
