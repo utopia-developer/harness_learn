@@ -8,11 +8,13 @@ import {
   type TaskStatus
 } from "../../../packages/contracts/src/index.js";
 import { createDemoConsoleDashboard } from "./dashboard-fixture.js";
+import { createRunTraceStore, type RunTraceStore } from "./run-trace-store.js";
 import { createTaskCenterStore, type TaskCenterStore } from "./task-center-store.js";
 
 export type ApiServerOptions = {
   dashboard?: ConsoleDashboardResponse;
   taskCenterStore?: TaskCenterStore;
+  runTraceStore?: RunTraceStore;
 };
 
 export type ApiRequest = {
@@ -42,6 +44,7 @@ export function createApiServer(options: ApiServerOptions = {}): Server {
 }
 
 const defaultTaskCenterStore = createTaskCenterStore();
+const defaultRunTraceStore = createRunTraceStore();
 
 export async function handleApiRequest(
   request: ApiRequest,
@@ -49,6 +52,7 @@ export async function handleApiRequest(
 ): Promise<ApiResponse> {
   const dashboard = options.dashboard ?? createDemoConsoleDashboard();
   const taskCenterStore = options.taskCenterStore ?? defaultTaskCenterStore;
+  const runTraceStore = options.runTraceStore ?? defaultRunTraceStore;
   const pathname = parsePathname(request);
 
   if (request.method === "GET" && pathname === API_ENDPOINTS.health) {
@@ -78,6 +82,48 @@ export async function handleApiRequest(
 
   if (request.method === "GET" && pathname === API_ENDPOINTS.metricsSummary) {
     return jsonResponse(200, taskCenterStore.getMetricsSummary());
+  }
+
+  const runTraceMatch = pathname.match(/^\/api\/v1\/tasks\/([^/]+)\/runs\/([^/]+)\/trace$/);
+  if (request.method === "GET" && runTraceMatch) {
+    const trace = runTraceStore.getRunTrace(
+      decodeURIComponent(runTraceMatch[1]),
+      decodeURIComponent(runTraceMatch[2])
+    );
+    return trace ? jsonResponse(200, trace) : jsonResponse(404, {
+      error: "not_found",
+      message: "Run trace not found"
+    });
+  }
+
+  const runStreamMatch = pathname.match(/^\/api\/v1\/tasks\/([^/]+)\/runs\/([^/]+)\/stream$/);
+  if (request.method === "GET" && runStreamMatch) {
+    const stream = runTraceStore.getRunStream(
+      decodeURIComponent(runStreamMatch[1]),
+      decodeURIComponent(runStreamMatch[2])
+    );
+    return stream ? textResponse(200, stream, "text/event-stream; charset=utf-8") : jsonResponse(404, {
+      error: "not_found",
+      message: "Run stream not found"
+    });
+  }
+
+  const toolOutputMatch = pathname.match(/^\/api\/v1\/tool-outputs\/(.+)$/);
+  if (request.method === "GET" && toolOutputMatch) {
+    const output = runTraceStore.getToolOutput(decodeURIComponent(toolOutputMatch[1]));
+    return output ? jsonResponse(200, output) : jsonResponse(404, {
+      error: "not_found",
+      message: "Tool output not found"
+    });
+  }
+
+  const replayCaseMatch = pathname.match(/^\/api\/v1\/traces\/([^/]+)\/replay-case$/);
+  if (request.method === "GET" && replayCaseMatch) {
+    const replayCase = runTraceStore.getReplayCase(decodeURIComponent(replayCaseMatch[1]));
+    return replayCase ? jsonResponse(200, replayCase) : jsonResponse(404, {
+      error: "not_found",
+      message: "Replay case not found"
+    });
   }
 
   return jsonResponse(404, {
@@ -173,7 +219,23 @@ function jsonResponse(statusCode: number, body: unknown): ApiResponse {
   };
 }
 
+function textResponse(statusCode: number, body: string, contentType: string): ApiResponse {
+  return {
+    statusCode,
+    headers: {
+      "content-type": contentType,
+      "access-control-allow-origin": "*"
+    },
+    body
+  };
+}
+
 function sendJson(response: ServerResponse, apiResponse: ApiResponse): void {
   response.writeHead(apiResponse.statusCode, apiResponse.headers);
-  response.end(JSON.stringify(apiResponse.body));
+  const contentType = apiResponse.headers["content-type"] ?? "";
+  response.end(
+    contentType.startsWith("application/json")
+      ? JSON.stringify(apiResponse.body)
+      : String(apiResponse.body)
+  );
 }
