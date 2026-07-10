@@ -5,8 +5,11 @@ import {
   type ConsoleDashboardResponse,
   type CreateTaskRequest,
   type ListTasksQuery,
+  type ApprovalActionRequest,
+  type ApprovalStatus,
   type TaskStatus
 } from "../../../packages/contracts/src/index.js";
+import { createApprovalQueueStore, type ApprovalQueueStore } from "./approval-queue-store.js";
 import { createDemoConsoleDashboard } from "./dashboard-fixture.js";
 import { createRunTraceStore, type RunTraceStore } from "./run-trace-store.js";
 import { createTaskCenterStore, type TaskCenterStore } from "./task-center-store.js";
@@ -15,6 +18,7 @@ export type ApiServerOptions = {
   dashboard?: ConsoleDashboardResponse;
   taskCenterStore?: TaskCenterStore;
   runTraceStore?: RunTraceStore;
+  approvalQueueStore?: ApprovalQueueStore;
 };
 
 export type ApiRequest = {
@@ -45,6 +49,7 @@ export function createApiServer(options: ApiServerOptions = {}): Server {
 
 const defaultTaskCenterStore = createTaskCenterStore();
 const defaultRunTraceStore = createRunTraceStore();
+const defaultApprovalQueueStore = createApprovalQueueStore();
 
 export async function handleApiRequest(
   request: ApiRequest,
@@ -53,6 +58,7 @@ export async function handleApiRequest(
   const dashboard = options.dashboard ?? createDemoConsoleDashboard();
   const taskCenterStore = options.taskCenterStore ?? defaultTaskCenterStore;
   const runTraceStore = options.runTraceStore ?? defaultRunTraceStore;
+  const approvalQueueStore = options.approvalQueueStore ?? defaultApprovalQueueStore;
   const pathname = parsePathname(request);
 
   if (request.method === "GET" && pathname === API_ENDPOINTS.health) {
@@ -82,6 +88,43 @@ export async function handleApiRequest(
 
   if (request.method === "GET" && pathname === API_ENDPOINTS.metricsSummary) {
     return jsonResponse(200, taskCenterStore.getMetricsSummary());
+  }
+
+  if (request.method === "GET" && pathname === API_ENDPOINTS.approvals) {
+    return jsonResponse(200, approvalQueueStore.listApprovals(parseApprovalStatus(request)));
+  }
+
+  const approveMatch = pathname.match(/^\/api\/v1\/approvals\/([^/]+)\/approve$/);
+  if (request.method === "POST" && approveMatch) {
+    const result = approvalQueueStore.approve(
+      decodeURIComponent(approveMatch[1]),
+      parseApprovalActionRequest(request.body)
+    );
+    return result ? jsonResponse(200, result) : jsonResponse(404, {
+      error: "not_found",
+      message: "Approval not found"
+    });
+  }
+
+  const denyMatch = pathname.match(/^\/api\/v1\/approvals\/([^/]+)\/deny$/);
+  if (request.method === "POST" && denyMatch) {
+    const result = approvalQueueStore.deny(
+      decodeURIComponent(denyMatch[1]),
+      parseApprovalActionRequest(request.body)
+    );
+    return result ? jsonResponse(200, result) : jsonResponse(404, {
+      error: "not_found",
+      message: "Approval not found"
+    });
+  }
+
+  const applySuggestionMatch = pathname.match(/^\/api\/v1\/policies\/suggestions\/([^/]+)\/apply$/);
+  if (request.method === "POST" && applySuggestionMatch) {
+    const result = approvalQueueStore.applySuggestion(decodeURIComponent(applySuggestionMatch[1]));
+    return result ? jsonResponse(200, result) : jsonResponse(404, {
+      error: "not_found",
+      message: "Policy suggestion not found"
+    });
   }
 
   const runTraceMatch = pathname.match(/^\/api\/v1\/tasks\/([^/]+)\/runs\/([^/]+)\/trace$/);
@@ -144,6 +187,28 @@ function parseTaskQuery(request: ApiRequest): ListTasksQuery {
     search: url.searchParams.get("search") ?? undefined,
     sort: parseSort(url.searchParams.get("sort"))
   };
+}
+
+function parseApprovalStatus(request: ApiRequest): ApprovalStatus | "all" | undefined {
+  const url = new URL(request.url ?? "/", "http://127.0.0.1");
+  const status = url.searchParams.get("status");
+  if (
+    status === "pending" ||
+    status === "approved" ||
+    status === "denied" ||
+    status === "all"
+  ) {
+    return status;
+  }
+  return undefined;
+}
+
+function parseApprovalActionRequest(body: unknown): ApprovalActionRequest {
+  if (!body || typeof body !== "object") {
+    return {};
+  }
+  const input = body as Record<string, unknown>;
+  return typeof input.reason === "string" ? { reason: input.reason } : {};
 }
 
 function parseStatus(value: string | null): TaskStatus | "all" | undefined {

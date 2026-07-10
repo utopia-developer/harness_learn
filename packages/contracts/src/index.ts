@@ -172,6 +172,66 @@ export type ReplayCaseResponse = {
   expectedTools: string[];
 };
 
+export type ApprovalStatus = "pending" | "approved" | "denied";
+
+export type ApprovalRiskLevel = "low" | "medium" | "high";
+
+export type ApprovalRiskDto = {
+  level: ApprovalRiskLevel;
+  explanation: string;
+  factors: string[];
+};
+
+export type PolicySuggestionStatus = "pending" | "applied";
+
+export type PolicySuggestionDto = {
+  id: string;
+  title: string;
+  description: string;
+  status: PolicySuggestionStatus;
+};
+
+export type ApprovalDto = {
+  id: string;
+  taskId: string;
+  runId: string;
+  traceId: string;
+  callId: string;
+  tool: string;
+  mode: string;
+  reason: string;
+  requestedAt: string;
+  status: ApprovalStatus;
+  input: unknown;
+  risk: ApprovalRiskDto;
+  suggestions: PolicySuggestionDto[];
+};
+
+export type ApprovalQueueResponse = {
+  approvals: ApprovalDto[];
+  total: number;
+  filters: {
+    status: ApprovalStatus | "all";
+  };
+};
+
+export type ApprovalActionRequest = {
+  reason?: string;
+};
+
+export type ApprovalActionResponse = {
+  approval: ApprovalDto;
+  runEffect: {
+    runId: string;
+    status: "continues" | "failed";
+    message: string;
+  };
+};
+
+export type ApplyPolicySuggestionResponse = {
+  suggestion: PolicySuggestionDto;
+};
+
 export const API_ENDPOINTS = {
   health: "/api/v1/health",
   consoleDashboard: "/api/v1/console/dashboard",
@@ -183,7 +243,12 @@ export const API_ENDPOINTS = {
   runStream: (taskId: string, runId: string) =>
     `/api/v1/tasks/${taskId}/runs/${runId}/stream`,
   toolOutput: (ref: string) => `/api/v1/tool-outputs/${encodeURIComponent(ref)}`,
-  replayCase: (traceId: string) => `/api/v1/traces/${traceId}/replay-case`
+  replayCase: (traceId: string) => `/api/v1/traces/${traceId}/replay-case`,
+  approvals: "/api/v1/approvals",
+  approveApproval: (approvalId: string) => `/api/v1/approvals/${approvalId}/approve`,
+  denyApproval: (approvalId: string) => `/api/v1/approvals/${approvalId}/deny`,
+  applyPolicySuggestion: (suggestionId: string) =>
+    `/api/v1/policies/suggestions/${suggestionId}/apply`
 } as const;
 
 export const WEB_ROUTES = {
