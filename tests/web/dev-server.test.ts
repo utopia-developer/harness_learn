@@ -56,4 +56,8 @@ test("dev server resolves app routes to index html for browser navigation", () =
     path: join(rootDir, "dist/apps/web/src/app/render.js"),
     contentType: "text/javascript; charset=utf-8"
   });
+  assert.deepEqual(resolveWebAsset("/packages/contracts/src/index.js", rootDir), {
+    path: join(rootDir, "dist/packages/contracts/src/index.js"),
+    contentType: "text/javascript; charset=utf-8"
+  });
 });
