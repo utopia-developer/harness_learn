@@ -78,3 +78,37 @@
 
 - 当前存储是单 JSON 文件实现，适合本地 MVP 和接口验证。
 - 并发写入没有引入文件锁；进入多 worker 后应替换为 PostgreSQL 或具备事务能力的存储。
+
+## 功能点 3：Trace/审批控制台基础视图模型
+
+### 目标
+
+- 为后续 Web Console 提供稳定的数据模型，先闭合“看得见任务、Trace、审批”的产品能力。
+- 不直接引入 Next.js 或其他 UI 框架，避免在数据口径未稳定前绑定前端实现。
+- 控制台视图只读，所有审批执行仍由现有权限/审批接口负责。
+
+### 实现
+
+- 新增 `src/console/console-view.ts`。
+- `createConsoleDashboard` 接收任务、Trace 和审批记录，输出：
+  - `tasks`：任务卡片，包含项目、目标、状态、更新时间、Trace 数和待审批数。
+  - `traces`：Trace 摘要，包含事件数、LLM 调用数、工具调用数、权限请求数、状态和失败信息。
+  - `pendingApprovals`：待审批队列，自动过滤已被 `ApprovalRecord` 解决的请求。
+
+### 测试验证
+
+- 新增 `tests/console/console-view.test.ts`。
+- 覆盖任务/Trace 聚合、待审批过滤、失败 Trace 暴露。
+- 验证命令：`npm test`。
+- 当前结果：89 个测试全部通过。
+
+### 问题记录
+
+- 当前只实现视图模型，不包含真实 Web 页面。
+- 待审批队列通过 Trace 中的 `permission.requested` 和审批记录差集计算；进入多用户场景后需要叠加权限可见性过滤。
+
+## 阶段 8 当前闭环
+
+- 模型层：支持 OpenAI-compatible 网关，CLI 可通过环境变量切换真实模型。
+- 任务层：支持文件持久化任务、运行事件和检查点。
+- 控制台层：支持任务概览、Trace 摘要和待审批队列的数据模型。
