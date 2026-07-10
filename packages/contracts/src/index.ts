@@ -232,11 +232,59 @@ export type ApplyPolicySuggestionResponse = {
   suggestion: PolicySuggestionDto;
 };
 
+export type ReleaseReadinessStatus = "ready" | "blocked";
+
+export type ReleaseSummaryDto = {
+  id: string;
+  projectId: string;
+  version: string;
+  title: string;
+  status: ReleaseReadinessStatus;
+  generatedAt: string;
+};
+
+export type ReleaseGateCheckDto = {
+  name: "eval" | "cost" | "quality";
+  label: string;
+  passed: boolean;
+  detail: string;
+};
+
+export type ReleaseEvidenceDto = {
+  auditEventCount: number;
+  auditJsonlHref: string;
+  traceIds: string[];
+};
+
+export type ListReleasesResponse = {
+  releases: ReleaseSummaryDto[];
+  total: number;
+};
+
+export type ReleaseReadinessResponse = {
+  release: ReleaseSummaryDto;
+  summary: string;
+  checks: ReleaseGateCheckDto[];
+  blockers: string[];
+  evidence: ReleaseEvidenceDto;
+};
+
+export type ReleaseGateActionResponse = {
+  releaseId: string;
+  status: ReleaseReadinessStatus;
+  message: string;
+  readiness: ReleaseReadinessResponse;
+};
+
 export const API_ENDPOINTS = {
   health: "/api/v1/health",
   consoleDashboard: "/api/v1/console/dashboard",
   tasks: "/api/v1/tasks",
+  releases: "/api/v1/releases",
   releaseSummary: "/api/v1/releases/summary",
+  releaseReadiness: (releaseId: string) => `/api/v1/releases/${releaseId}/readiness`,
+  runReleaseGate: (releaseId: string) => `/api/v1/releases/${releaseId}/gate`,
+  releaseAuditJsonl: (releaseId: string) => `/api/v1/releases/${releaseId}/audit.jsonl`,
   metricsSummary: "/api/v1/metrics/summary",
   runTrace: (taskId: string, runId: string) =>
     `/api/v1/tasks/${taskId}/runs/${runId}/trace`,

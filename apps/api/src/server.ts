@@ -11,6 +11,7 @@ import {
 } from "../../../packages/contracts/src/index.js";
 import { createApprovalQueueStore, type ApprovalQueueStore } from "./approval-queue-store.js";
 import { createDemoConsoleDashboard } from "./dashboard-fixture.js";
+import { createReleaseReadinessStore, type ReleaseReadinessStore } from "./release-readiness-store.js";
 import { createRunTraceStore, type RunTraceStore } from "./run-trace-store.js";
 import { createTaskCenterStore, type TaskCenterStore } from "./task-center-store.js";
 
@@ -19,6 +20,7 @@ export type ApiServerOptions = {
   taskCenterStore?: TaskCenterStore;
   runTraceStore?: RunTraceStore;
   approvalQueueStore?: ApprovalQueueStore;
+  releaseReadinessStore?: ReleaseReadinessStore;
 };
 
 export type ApiRequest = {
@@ -50,6 +52,7 @@ export function createApiServer(options: ApiServerOptions = {}): Server {
 const defaultTaskCenterStore = createTaskCenterStore();
 const defaultRunTraceStore = createRunTraceStore();
 const defaultApprovalQueueStore = createApprovalQueueStore();
+const defaultReleaseReadinessStore = createReleaseReadinessStore();
 
 export async function handleApiRequest(
   request: ApiRequest,
@@ -59,6 +62,7 @@ export async function handleApiRequest(
   const taskCenterStore = options.taskCenterStore ?? defaultTaskCenterStore;
   const runTraceStore = options.runTraceStore ?? defaultRunTraceStore;
   const approvalQueueStore = options.approvalQueueStore ?? defaultApprovalQueueStore;
+  const releaseReadinessStore = options.releaseReadinessStore ?? defaultReleaseReadinessStore;
   const pathname = parsePathname(request);
 
   if (request.method === "GET" && pathname === API_ENDPOINTS.health) {
@@ -84,6 +88,43 @@ export async function handleApiRequest(
 
   if (request.method === "GET" && pathname === API_ENDPOINTS.releaseSummary) {
     return jsonResponse(200, taskCenterStore.getReleaseSummary());
+  }
+
+  if (request.method === "GET" && pathname === API_ENDPOINTS.releases) {
+    return jsonResponse(200, releaseReadinessStore.listReleases());
+  }
+
+  const releaseReadinessMatch = pathname.match(/^\/api\/v1\/releases\/([^/]+)\/readiness$/);
+  if (request.method === "GET" && releaseReadinessMatch) {
+    const readiness = releaseReadinessStore.getReadiness(
+      decodeURIComponent(releaseReadinessMatch[1])
+    );
+    return readiness ? jsonResponse(200, readiness) : jsonResponse(404, {
+      error: "not_found",
+      message: "Release not found"
+    });
+  }
+
+  const releaseGateMatch = pathname.match(/^\/api\/v1\/releases\/([^/]+)\/gate$/);
+  if (request.method === "POST" && releaseGateMatch) {
+    const result = releaseReadinessStore.runGate(decodeURIComponent(releaseGateMatch[1]));
+    return result ? jsonResponse(200, result) : jsonResponse(404, {
+      error: "not_found",
+      message: "Release not found"
+    });
+  }
+
+  const releaseAuditMatch = pathname.match(/^\/api\/v1\/releases\/([^/]+)\/audit\.jsonl$/);
+  if (request.method === "GET" && releaseAuditMatch) {
+    const auditJsonl = releaseReadinessStore.getAuditJsonl(
+      decodeURIComponent(releaseAuditMatch[1])
+    );
+    return auditJsonl !== undefined
+      ? textResponse(200, auditJsonl, "application/jsonl; charset=utf-8")
+      : jsonResponse(404, {
+        error: "not_found",
+        message: "Release audit evidence not found"
+      });
   }
 
   if (request.method === "GET" && pathname === API_ENDPOINTS.metricsSummary) {
