@@ -147,3 +147,32 @@
 
 - 当前 F6 MVP 使用 seed 上下文 `project-harness` 与 `team-platform`，页面还没有项目/team 切换器。
 - 处理方式：先闭合单项目单团队治理链路，后续在 Auth / RBAC / 项目选择能力进入 F8 后再参数化。
+
+## F6 总体验收
+
+### 已完成范围
+
+- `/settings/policy` 页面：已接入共享 App Shell，并渲染项目策略。
+- 工具白名单：展示可用工具和当前允许状态，支持保存策略。
+- 模型白名单：展示可用模型和当前允许状态，支持保存策略。
+- 策略模拟器：支持选择工具和模型，返回允许/拒绝结果及原因。
+- `/settings/plugins` 页面：已接入共享 App Shell，并渲染插件列表。
+- 插件状态：展示 available、installed、enabled 三类状态。
+- 插件操作：支持 Install、Enable、Disable，并刷新插件列表。
+- Team shared skills：展示由已启用插件提供的团队共享 Skill。
+- 端到端闭环：读取策略、更新策略、模拟策略、安装插件、启用插件、页面渲染均通过真实 API gateway 验证。
+
+### 最终验证
+
+- `npm test`：154 个测试全部通过。
+- `npm run test:web`：34 个 web 测试全部通过。
+- `npm run test:e2e`：6 个端到端测试全部通过。
+- `npm run build:web`：通过。
+
+### 未完成或后续增强
+
+- 当前 Team Policy 与 Plugin 数据通过 API gateway 内存 store seed，后续需要接入持久化 TeamPolicyStore、PluginStore 和 AuditLog。
+- 当前页面固定使用 `project-harness` 与 `team-platform`，后续需要接入项目/team 选择器。
+- 当前保存策略没有管理员权限校验，后续 F8 需要接入 Auth / RBAC。
+- 当前插件安装是 catalog 内 manifest 安装，后续需要支持插件包来源校验、版本升级、回滚和安装审计。
+- 当前策略模拟仅返回工具/模型决策，后续可以扩展为完整 run plan simulation。
