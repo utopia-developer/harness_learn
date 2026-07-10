@@ -51,9 +51,64 @@ export type ConsoleDashboardResponse = {
   pendingApprovals: ConsolePendingApprovalDto[];
 };
 
+export type TaskReleaseGateStatus = "ready" | "blocked" | "warning" | "not_applicable";
+
+export type TaskCenterTaskDto = {
+  id: string;
+  projectId: string;
+  userId: string;
+  goal: string;
+  status: TaskStatus;
+  createdAt: string;
+  updatedAt: string;
+  traceCount: number;
+  pendingApprovalCount: number;
+  releaseGateStatus: TaskReleaseGateStatus;
+  costUsd: number;
+};
+
+export type TaskSortKey = "updated_desc" | "updated_asc" | "status_asc" | "goal_asc";
+
+export type ListTasksQuery = {
+  status?: TaskStatus | "all";
+  search?: string;
+  sort?: TaskSortKey;
+};
+
+export type ListTasksResponse = {
+  tasks: TaskCenterTaskDto[];
+  total: number;
+  filters: Required<ListTasksQuery>;
+};
+
+export type CreateTaskRequest = {
+  projectId: string;
+  userId: string;
+  goal: string;
+};
+
+export type CreateTaskResponse = {
+  task: TaskCenterTaskDto;
+};
+
+export type ReleaseSummaryResponse = {
+  ready: number;
+  blocked: number;
+  warning: number;
+};
+
+export type MetricsSummaryResponse = {
+  activeTasks: number;
+  waitingApprovalTasks: number;
+  costTodayUsd: number;
+};
+
 export const API_ENDPOINTS = {
   health: "/api/v1/health",
-  consoleDashboard: "/api/v1/console/dashboard"
+  consoleDashboard: "/api/v1/console/dashboard",
+  tasks: "/api/v1/tasks",
+  releaseSummary: "/api/v1/releases/summary",
+  metricsSummary: "/api/v1/metrics/summary"
 } as const;
 
 export const WEB_ROUTES = {

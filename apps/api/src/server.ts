@@ -1,15 +1,24 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
-import { API_ENDPOINTS, type ConsoleDashboardResponse } from "../../../packages/contracts/src/index.js";
+import {
+  API_ENDPOINTS,
+  type ConsoleDashboardResponse,
+  type CreateTaskRequest,
+  type ListTasksQuery,
+  type TaskStatus
+} from "../../../packages/contracts/src/index.js";
 import { createDemoConsoleDashboard } from "./dashboard-fixture.js";
+import { createTaskCenterStore, type TaskCenterStore } from "./task-center-store.js";
 
 export type ApiServerOptions = {
   dashboard?: ConsoleDashboardResponse;
+  taskCenterStore?: TaskCenterStore;
 };
 
 export type ApiRequest = {
   method?: string;
   url?: string;
+  body?: unknown;
 };
 
 export type ApiResponse = {
@@ -19,17 +28,27 @@ export type ApiResponse = {
 };
 
 export function createApiServer(options: ApiServerOptions = {}): Server {
-  return createServer((request, response) => {
-    const apiResponse = handleApiRequest(request, options);
+  return createServer(async (request, response) => {
+    const apiResponse = await handleApiRequest(
+      {
+        method: request.method,
+        url: request.url,
+        body: await readJsonBody(request)
+      },
+      options
+    );
     sendJson(response, apiResponse);
   });
 }
 
-export function handleApiRequest(
+const defaultTaskCenterStore = createTaskCenterStore();
+
+export async function handleApiRequest(
   request: ApiRequest,
   options: ApiServerOptions = {}
-): ApiResponse {
+): Promise<ApiResponse> {
   const dashboard = options.dashboard ?? createDemoConsoleDashboard();
+  const taskCenterStore = options.taskCenterStore ?? defaultTaskCenterStore;
   const pathname = parsePathname(request);
 
   if (request.method === "GET" && pathname === API_ENDPOINTS.health) {
@@ -43,6 +62,24 @@ export function handleApiRequest(
     return jsonResponse(200, dashboard);
   }
 
+  if (request.method === "GET" && pathname === API_ENDPOINTS.tasks) {
+    return jsonResponse(200, taskCenterStore.listTasks(parseTaskQuery(request)));
+  }
+
+  if (request.method === "POST" && pathname === API_ENDPOINTS.tasks) {
+    return jsonResponse(201, {
+      task: taskCenterStore.createTask(parseCreateTaskRequest(request.body))
+    });
+  }
+
+  if (request.method === "GET" && pathname === API_ENDPOINTS.releaseSummary) {
+    return jsonResponse(200, taskCenterStore.getReleaseSummary());
+  }
+
+  if (request.method === "GET" && pathname === API_ENDPOINTS.metricsSummary) {
+    return jsonResponse(200, taskCenterStore.getMetricsSummary());
+  }
+
   return jsonResponse(404, {
     error: "not_found",
     message: `No route for ${request.method ?? "UNKNOWN"} ${pathname}`
@@ -52,6 +89,77 @@ export function handleApiRequest(
 function parsePathname(request: ApiRequest | IncomingMessage): string {
   const url = new URL(request.url ?? "/", "http://127.0.0.1");
   return url.pathname;
+}
+
+function parseTaskQuery(request: ApiRequest): ListTasksQuery {
+  const url = new URL(request.url ?? "/", "http://127.0.0.1");
+  return {
+    status: parseStatus(url.searchParams.get("status")),
+    search: url.searchParams.get("search") ?? undefined,
+    sort: parseSort(url.searchParams.get("sort"))
+  };
+}
+
+function parseStatus(value: string | null): TaskStatus | "all" | undefined {
+  if (!value || value === "all") {
+    return value === "all" ? "all" : undefined;
+  }
+  if (
+    value === "pending" ||
+    value === "planning" ||
+    value === "running" ||
+    value === "waiting_approval" ||
+    value === "completed" ||
+    value === "failed" ||
+    value === "cancelled"
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function parseSort(value: string | null): ListTasksQuery["sort"] {
+  if (
+    value === "updated_desc" ||
+    value === "updated_asc" ||
+    value === "status_asc" ||
+    value === "goal_asc"
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function parseCreateTaskRequest(body: unknown): CreateTaskRequest {
+  if (!body || typeof body !== "object") {
+    throw new Error("Create task request body is required");
+  }
+  const input = body as Record<string, unknown>;
+  if (
+    typeof input.projectId !== "string" ||
+    typeof input.userId !== "string" ||
+    typeof input.goal !== "string" ||
+    !input.goal.trim()
+  ) {
+    throw new Error("Create task request requires projectId, userId and goal");
+  }
+  return {
+    projectId: input.projectId,
+    userId: input.userId,
+    goal: input.goal.trim()
+  };
+}
+
+async function readJsonBody(request: IncomingMessage): Promise<unknown> {
+  if (request.method !== "POST" && request.method !== "PUT" && request.method !== "PATCH") {
+    return undefined;
+  }
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const raw = Buffer.concat(chunks).toString("utf8").trim();
+  return raw ? JSON.parse(raw) : undefined;
 }
 
 function jsonResponse(statusCode: number, body: unknown): ApiResponse {

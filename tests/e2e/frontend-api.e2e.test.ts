@@ -10,7 +10,7 @@ test("frontend api client reads console dashboard through api gateway", async ()
     baseUrl: "http://harness.local",
     fetch: async (input: string | URL | Request, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      const response = handleApiRequest({
+      const response = await handleApiRequest({
         method: init?.method ?? "GET",
         url
       });

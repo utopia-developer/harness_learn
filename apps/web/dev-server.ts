@@ -13,9 +13,9 @@ const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", `http://${host}:${port}`);
 
   if (url.pathname.startsWith("/api/")) {
-    const apiResponse = handleApiRequest({
+    const apiResponse = await handleApiRequest({
       method: request.method,
-      url: url.pathname
+      url: `${url.pathname}${url.search}`
     });
     response.writeHead(apiResponse.statusCode, apiResponse.headers);
     response.end(JSON.stringify(apiResponse.body));
