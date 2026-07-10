@@ -131,3 +131,28 @@
 
 - 新增 `/metrics` 导航后，`tests/web/web-boundary.test.ts` 仍只接受原有 5 条路由。
 - 处理方式：同步更新边界测试，明确 `/metrics` 属于产品路由契约的一部分。
+
+## F7 总体验收
+
+### 已完成范围
+
+- `/metrics` 页面：已接入共享 App Shell，并渲染指标分析页。
+- 成本分析：展示总成本、模型成本、工具成本和 Skill 成本归因。
+- 质量分析：展示 Eval 通过率、平均质量分和质量趋势点。
+- Runtime 分析：展示 Run 成功率、总 Run 数、平均迭代次数、平均审批等待时长和状态分布。
+- API 闭环：cost、quality、runtime 三类指标均通过 API gateway 暴露。
+- 端到端闭环：前端 API client 拉取三类真实 API 数据后渲染 `/metrics` 页面。
+
+### 最终验证
+
+- `npm test`：162 个测试全部通过。
+- `npm run test:web`：37 个 web 测试全部通过。
+- `npm run test:e2e`：7 个端到端测试全部通过。
+- `npm run build:web`：通过。
+
+### 未完成或后续增强
+
+- 当前 Metrics 数据通过 API gateway 内存 store seed，后续需要接入持久化 CostQualityDashboard、TraceStore、TaskEventStore 和 ApprovalStore。
+- 当前 Runtime 指标为聚合 seed，后续应从真实 AgentEvent / Trace 事件计算成功率、迭代次数和审批等待时长。
+- 当前趋势展示为静态列表，后续接入图表库后可以升级为折线图、堆叠条形图和分组筛选。
+- 当前页面固定使用 `project-harness`，后续需要接入项目选择器并支持按模型、工具、Skill 过滤。
