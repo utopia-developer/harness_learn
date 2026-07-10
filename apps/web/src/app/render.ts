@@ -4,9 +4,12 @@ import type {
   ListReleasesResponse,
   ListTasksResponse,
   MetricsSummaryResponse,
+  PolicySimulationResponse,
+  ProjectPolicyResponse,
   ReleaseReadinessResponse,
   ReleaseSummaryResponse,
   RunTraceResponse,
+  TeamPluginsResponse,
   TaskStatus
 } from "../../../../packages/contracts/src/index.js";
 import {
@@ -18,9 +21,14 @@ import { createApprovalQueueViewModel } from "../features/approvals/approval-que
 import { createDashboardViewModel } from "../features/console/dashboard-view-model.js";
 import { createReleaseReadinessViewModel } from "../features/releases/release-readiness-view-model.js";
 import { createRunDetailViewModel } from "../features/runs/run-detail-view-model.js";
+import { createPluginsViewModel } from "../features/settings/plugins-view-model.js";
+import { createPolicyViewModel } from "../features/settings/policy-view-model.js";
 import { createTaskRequestFromFormData } from "../features/tasks/task-create-form.js";
 import { createTaskCenterViewModel } from "../features/tasks/task-center-view-model.js";
 import { createAppShellViewModel } from "./shell.js";
+
+const defaultProjectId = "project-harness";
+const defaultTeamId = "team-platform";
 
 export async function renderApp(root: HTMLElement, client: ApiClient): Promise<void> {
   const pathname = root.ownerDocument.location?.pathname ?? "/";
@@ -53,6 +61,30 @@ export async function renderApp(root: HTMLElement, client: ApiClient): Promise<v
         releaseReadiness: readiness ? { releases, readiness } : undefined
       });
       bindReleaseForms(root, client, pathname);
+      return;
+    }
+
+    if (pathname.startsWith("/settings/policy")) {
+      const policy = await client.getProjectPolicy(defaultProjectId);
+      root.innerHTML = renderAppHtml({
+        state: "ready",
+        pathname,
+        policySettings: {
+          policy
+        }
+      });
+      bindPolicyForms(root, client, pathname);
+      return;
+    }
+
+    if (pathname.startsWith("/settings/plugins")) {
+      const pluginsSettings = await client.listTeamPlugins(defaultTeamId);
+      root.innerHTML = renderAppHtml({
+        state: "ready",
+        pathname,
+        pluginsSettings
+      });
+      bindPluginForms(root, client, pathname);
       return;
     }
 
@@ -146,6 +178,11 @@ export type RenderAppHtmlInput = {
     releases: ListReleasesResponse;
     readiness: ReleaseReadinessResponse;
   };
+  policySettings?: {
+    policy: ProjectPolicyResponse;
+    simulation?: PolicySimulationResponse;
+  };
+  pluginsSettings?: TeamPluginsResponse;
   error?: unknown;
 };
 
@@ -178,6 +215,8 @@ export function renderAppHtml(input: RenderAppHtmlInput): string {
           runDetail: input.runDetail,
           approvalQueue: input.approvalQueue,
           releaseReadiness: input.releaseReadiness,
+          policySettings: input.policySettings,
+          pluginsSettings: input.pluginsSettings,
           error: input.error
         })}
       </main>
@@ -193,6 +232,8 @@ function renderContent(
     runDetail?: NonNullable<RenderAppHtmlInput["runDetail"]>;
     approvalQueue?: ApprovalQueueResponse;
     releaseReadiness?: NonNullable<RenderAppHtmlInput["releaseReadiness"]>;
+    policySettings?: NonNullable<RenderAppHtmlInput["policySettings"]>;
+    pluginsSettings?: TeamPluginsResponse;
     error?: unknown;
   }
 ): string {
@@ -224,6 +265,14 @@ function renderContent(
 
   if (content.releaseReadiness) {
     return renderReleaseReadinessContent(content.releaseReadiness);
+  }
+
+  if (content.policySettings) {
+    return renderPolicySettingsContent(content.policySettings);
+  }
+
+  if (content.pluginsSettings) {
+    return renderPluginsSettingsContent(content.pluginsSettings);
   }
 
   if (!content.dashboard) {
@@ -263,6 +312,70 @@ function renderContent(
       `).join("")}
     </section>
   `;
+}
+
+function bindPolicyForms(root: HTMLElement, client: ApiClient, pathname: string): void {
+  root.querySelectorAll<HTMLFormElement>("[data-policy-action]").forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void (async () => {
+        const action = form.dataset.policyAction;
+        const formData = new FormData(form);
+        let simulation: PolicySimulationResponse | undefined;
+
+        if (action === "update") {
+          await client.updateProjectPolicy(defaultProjectId, {
+            allowedTools: formData.getAll("allowedTools").map(String),
+            allowedModels: formData.getAll("allowedModels").map(String)
+          });
+        } else if (action === "simulate") {
+          simulation = await client.simulateProjectPolicy(defaultProjectId, {
+            tool: String(formData.get("tool") ?? ""),
+            model: String(formData.get("model") ?? "")
+          });
+        }
+
+        const policy = await client.getProjectPolicy(defaultProjectId);
+        root.innerHTML = renderAppHtml({
+          state: "ready",
+          pathname,
+          policySettings: {
+            policy,
+            simulation
+          }
+        });
+        bindPolicyForms(root, client, pathname);
+      })();
+    });
+  });
+}
+
+function bindPluginForms(root: HTMLElement, client: ApiClient, pathname: string): void {
+  root.querySelectorAll<HTMLFormElement>("[data-plugin-action]").forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void (async () => {
+        const pluginId = form.dataset.pluginId ?? "";
+        const action = form.dataset.pluginAction;
+
+        if (action === "install") {
+          await client.installTeamPlugin(defaultTeamId, pluginId);
+        } else if (action === "enable") {
+          await client.enableTeamPlugin(defaultTeamId, pluginId);
+        } else if (action === "disable") {
+          await client.disableTeamPlugin(defaultTeamId, pluginId);
+        }
+
+        const pluginsSettings = await client.listTeamPlugins(defaultTeamId);
+        root.innerHTML = renderAppHtml({
+          state: "ready",
+          pathname,
+          pluginsSettings
+        });
+        bindPluginForms(root, client, pathname);
+      })();
+    });
+  });
 }
 
 function bindReleaseForms(root: HTMLElement, client: ApiClient, pathname: string): void {
@@ -631,6 +744,128 @@ function renderReleaseReadinessContent(
             </tbody>
           </table>
         </section>
+      </aside>
+    </section>
+  `;
+}
+
+function renderPolicySettingsContent(
+  policySettings: NonNullable<RenderAppHtmlInput["policySettings"]>
+): string {
+  const viewModel = createPolicyViewModel(policySettings);
+
+  return `
+    <section class="metrics-grid">
+      <article><span>Allowed tools</span><strong>${viewModel.tools.filter((tool) => tool.allowed).length}</strong></article>
+      <article><span>Allowed models</span><strong>${viewModel.models.filter((model) => model.allowed).length}</strong></article>
+      <article><span>Project</span><strong>${escapeHtml(viewModel.projectId)}</strong></article>
+    </section>
+    <section class="settings-layout">
+      <div class="panel settings-panel">
+        <h2>Team Policy</h2>
+        <p>${escapeHtml(viewModel.projectName)} · ${escapeHtml(viewModel.teamId)}</p>
+        <form method="post" action="${escapeHtml(viewModel.updateAction)}" data-policy-action="update">
+          <section class="settings-option-group">
+            <h3>工具白名单</h3>
+            <div class="settings-options">
+              ${viewModel.tools.map((tool) => `
+                <label class="check-option">
+                  <input type="checkbox" name="allowedTools" value="${escapeHtml(tool.name)}"${tool.allowed ? " checked" : ""} />
+                  <span>${escapeHtml(tool.name)}</span>
+                </label>
+              `).join("")}
+            </div>
+          </section>
+          <section class="settings-option-group">
+            <h3>模型白名单</h3>
+            <div class="settings-options">
+              ${viewModel.models.map((model) => `
+                <label class="check-option">
+                  <input type="checkbox" name="allowedModels" value="${escapeHtml(model.name)}"${model.allowed ? " checked" : ""} />
+                  <span>${escapeHtml(model.name)}</span>
+                </label>
+              `).join("")}
+            </div>
+          </section>
+          <button type="submit">Save policy</button>
+        </form>
+      </div>
+      <aside class="panel settings-panel" aria-label="策略模拟器">
+        <h2>策略模拟器</h2>
+        <form class="simulate-form" method="post" action="${escapeHtml(viewModel.simulateAction)}" data-policy-action="simulate">
+          <label>
+            Tool
+            <select name="tool">
+              ${viewModel.tools.map((tool) =>
+                `<option value="${escapeHtml(tool.name)}">${escapeHtml(tool.name)}</option>`
+              ).join("")}
+            </select>
+          </label>
+          <label>
+            Model
+            <select name="model">
+              ${viewModel.models.map((model) =>
+                `<option value="${escapeHtml(model.name)}">${escapeHtml(model.name)}</option>`
+              ).join("")}
+            </select>
+          </label>
+          <button type="submit">Simulate</button>
+        </form>
+        ${viewModel.simulation ? `
+          <section class="simulation-result">
+            ${[viewModel.simulation.tool, viewModel.simulation.model].map((decision) => `
+              <article class="decision-card decision-${escapeHtml(decision.tone)}">
+                <strong>${escapeHtml(decision.name)} · ${escapeHtml(decision.label)}</strong>
+                <p>${escapeHtml(decision.reason)}</p>
+              </article>
+            `).join("")}
+          </section>
+        ` : "<p>选择工具和模型后运行模拟。</p>"}
+      </aside>
+    </section>
+  `;
+}
+
+function renderPluginsSettingsContent(pluginsSettings: TeamPluginsResponse): string {
+  const viewModel = createPluginsViewModel(pluginsSettings);
+
+  return `
+    <section class="metrics-grid">
+      <article><span>Plugins</span><strong>${viewModel.plugins.length}</strong></article>
+      <article><span>Enabled</span><strong>${viewModel.plugins.filter((plugin) => plugin.status.label === "Enabled").length}</strong></article>
+      <article><span>Shared skills</span><strong>${viewModel.sharedSkills.length}</strong></article>
+    </section>
+    <section class="settings-layout">
+      <div class="panel settings-panel">
+        <h2>Plugin Registry</h2>
+        <div class="plugin-list">
+          ${viewModel.plugins.map((plugin) => `
+            <article class="plugin-card">
+              <div>
+                <h3>${escapeHtml(plugin.name)}</h3>
+                <p>${escapeHtml(plugin.id)} · ${escapeHtml(plugin.version)}</p>
+              </div>
+              <span class="badge badge-${escapeHtml(plugin.status.tone)}">${escapeHtml(plugin.status.label)}</span>
+              <dl>
+                <dt>Tools</dt>
+                <dd>${plugin.tools.map(escapeHtml).join(", ")}</dd>
+                <dt>Skills</dt>
+                <dd>${plugin.skills.map(escapeHtml).join(", ")}</dd>
+              </dl>
+              <form method="post" action="${escapeHtml(plugin.primaryAction.action)}" data-plugin-action="${escapeHtml(plugin.primaryAction.actionKind)}" data-plugin-id="${escapeHtml(plugin.id)}">
+                <button type="submit">${escapeHtml(plugin.primaryAction.label)}</button>
+              </form>
+            </article>
+          `).join("")}
+        </div>
+      </div>
+      <aside class="panel settings-panel" aria-label="Team shared skills">
+        <h2>Team shared skills</h2>
+        ${viewModel.sharedSkills.length > 0
+          ? `<ul class="skill-list">${viewModel.sharedSkills.map((skill) =>
+            `<li>${escapeHtml(skill)}</li>`
+          ).join("")}</ul>`
+          : "<p>暂无共享 Skill</p>"}
       </aside>
     </section>
   `;

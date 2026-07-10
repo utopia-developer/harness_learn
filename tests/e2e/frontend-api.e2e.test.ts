@@ -212,3 +212,59 @@ test("frontend renders release readiness and exports audit evidence", async () =
   assert.match(html, /case-console-approval: Output changed/);
   assert.match(html, /release-console-dogfood\/audit\.jsonl/);
 });
+
+test("frontend renders governance settings and updates policy and plugins", async () => {
+  const client = createApiClient({
+    baseUrl: "http://harness.local",
+    fetch: async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const response = await handleApiRequest({
+        method: init?.method ?? "GET",
+        url,
+        body: init?.body ? JSON.parse(String(init.body)) : undefined
+      });
+
+      return new Response(JSON.stringify(response.body), {
+        status: response.statusCode,
+        headers: response.headers
+      });
+    }
+  });
+
+  const beforePolicy = await client.getProjectPolicy("project-harness");
+  const simulation = await client.simulateProjectPolicy("project-harness", {
+    tool: "write_file",
+    model: "claude-3-opus"
+  });
+  const updatedPolicy = await client.updateProjectPolicy("project-harness", {
+    allowedTools: ["read_file", "search_text", "run_command"],
+    allowedModels: ["gpt-5", "gpt-5-mini"]
+  });
+  await client.installTeamPlugin("team-platform", "research-pack");
+  const enabled = await client.enableTeamPlugin("team-platform", "research-pack");
+  const plugins = await client.listTeamPlugins("team-platform");
+
+  const policyHtml = renderAppHtml({
+    state: "ready",
+    pathname: "/settings/policy",
+    policySettings: {
+      policy: updatedPolicy,
+      simulation
+    }
+  });
+  const pluginsHtml = renderAppHtml({
+    state: "ready",
+    pathname: "/settings/plugins",
+    pluginsSettings: plugins
+  });
+
+  assert.deepEqual(beforePolicy.policy.allowedModels, ["gpt-5-mini"]);
+  assert.equal(simulation.tool.allowed, false);
+  assert.equal(updatedPolicy.policy.allowedTools.includes("run_command"), true);
+  assert.equal(enabled.plugin.enabled, true);
+  assert.equal(plugins.sharedSkills.includes("deep-research"), true);
+  assert.match(policyHtml, /Team Policy/);
+  assert.match(policyHtml, /run_command/);
+  assert.match(pluginsHtml, /Plugin Registry/);
+  assert.match(pluginsHtml, /deep-research/);
+});

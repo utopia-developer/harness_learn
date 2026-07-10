@@ -326,6 +326,117 @@ h2 {
   vertical-align: top;
 }
 
+.settings-layout {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+}
+
+.settings-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.settings-panel > p {
+  color: #5b6c65;
+  margin-bottom: 0;
+}
+
+.settings-option-group {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.settings-options {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.check-option {
+  align-items: center;
+  border: 1px solid #d7dfda;
+  border-radius: 8px;
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+}
+
+.check-option input {
+  min-height: auto;
+}
+
+.simulate-form {
+  display: grid;
+  gap: 12px;
+}
+
+.simulation-result {
+  display: grid;
+  gap: 10px;
+}
+
+.decision-card,
+.plugin-card {
+  border: 1px solid #d7dfda;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.decision-card p,
+.plugin-card p {
+  color: #5b6c65;
+  margin: 4px 0 0;
+}
+
+.decision-danger {
+  background: #fff7f6;
+  border-color: #dca8a8;
+}
+
+.decision-success {
+  background: #f4fbf6;
+  border-color: #abd7bb;
+}
+
+.plugin-list {
+  display: grid;
+  gap: 12px;
+}
+
+.plugin-card {
+  display: grid;
+  gap: 12px;
+}
+
+.plugin-card dl {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  margin: 0;
+}
+
+.plugin-card dt {
+  color: #5b6c65;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.plugin-card dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.skill-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+}
+
 .approval-list {
   display: grid;
   gap: 10px;
@@ -655,11 +766,16 @@ button {
 
   .approval-layout,
   .release-layout,
+  .settings-layout,
   .approval-actions {
     grid-template-columns: 1fr;
   }
 
   .release-detail-header {
     flex-direction: column;
+  }
+
+  .settings-options {
+    grid-template-columns: 1fr;
   }
 }
