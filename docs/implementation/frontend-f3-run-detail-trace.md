@@ -129,3 +129,29 @@
 
 - 第一版 Run Detail 渲染中，timeline 的输出引用链接依赖 selected event；当选中的是工具请求事件时，后续工具完成事件的大输出链接不会展示。
 - 处理方式：将 `outputRefHref` 放入每个 timeline item 自己的 view-model，timeline 行独立渲染输出引用。
+
+## F3 总体验收
+
+### 已完成范围
+
+- `/tasks/:taskId/runs/:runId` 页面：已接入共享 App Shell，并渲染 Run Detail。
+- Trace Timeline：展示事件序号、类型、摘要、时间、严重级别和选中状态。
+- Event Detail Panel：展示事件类型、摘要、工具名、输入 JSON 和输出引用。
+- Tool input/output：工具输入在详情面板展示，大输出通过 `tool-output://...` 引用跳转。
+- 大输出引用：`GET /api/v1/tool-outputs/:ref` 已实现并由页面链接引用。
+- SSE 实时更新语义：`GET /api/v1/tasks/:taskId/runs/:runId/stream` 返回 `text/event-stream` 事件快照，前端已能解析。
+- Replay Case 入口：页面展示 `GET /api/v1/traces/:traceId/replay-case` 链接，API 复用后端 replay case 生成逻辑。
+- 失败定位：Run Detail header 和 failure panel 能显示失败模块与失败原因。
+
+### 最终验证
+
+- `npm test`：124 个测试全部通过。
+- `npm run test:web`：21 个 web 测试全部通过。
+- `npm run test:e2e`：3 个端到端测试全部通过。
+- `npm run build:web`：通过。
+
+### 未完成或后续增强
+
+- 当前 SSE endpoint 是事件快照，不是真实长连接；后续可在 HTTP server 层使用相同事件 DTO 做增量推送。
+- 当前 Event Detail 的事件选择通过 `selectedEventId` 输入控制；后续接入 Router 或客户端状态后，可支持点击 timeline 行实时切换详情。
+- 当前 Run Detail 使用 demo trace store；后续应接入真实 TraceCollector/TaskService 持久化记录。
