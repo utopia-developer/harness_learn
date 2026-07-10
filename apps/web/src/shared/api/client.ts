@@ -11,6 +11,9 @@ import {
   type ListReleasesResponse,
   type ListTasksQuery,
   type ListTasksResponse,
+  type MetricsCostResponse,
+  type MetricsQualityResponse,
+  type MetricsRuntimeResponse,
   type MetricsSummaryResponse,
   type PluginActionResponse,
   type PolicySimulationRequest,
@@ -49,6 +52,9 @@ export type ApiClient = {
   disableTeamPlugin(teamId: string, pluginId: string): Promise<PluginActionResponse>;
   getReleaseSummary(): Promise<ReleaseSummaryResponse>;
   getMetricsSummary(): Promise<MetricsSummaryResponse>;
+  getMetricsCost(projectId: string): Promise<MetricsCostResponse>;
+  getMetricsQuality(projectId: string): Promise<MetricsQualityResponse>;
+  getMetricsRuntime(projectId: string): Promise<MetricsRuntimeResponse>;
   getRunTrace(taskId: string, runId: string): Promise<RunTraceResponse>;
   getRunStreamSnapshot(taskId: string, runId: string): Promise<string>;
   getToolOutput(ref: string): Promise<ToolOutputResponse>;
@@ -172,6 +178,24 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
         fetchImpl,
         baseUrl,
         API_ENDPOINTS.metricsSummary
+      ),
+    getMetricsCost: (projectId) =>
+      getJson<MetricsCostResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.metricsCost(projectId)
+      ),
+    getMetricsQuality: (projectId) =>
+      getJson<MetricsQualityResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.metricsQuality(projectId)
+      ),
+    getMetricsRuntime: (projectId) =>
+      getJson<MetricsRuntimeResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.metricsRuntime(projectId)
       ),
     getRunTrace: (taskId, runId) =>
       getJson<RunTraceResponse>(

@@ -12,6 +12,9 @@ import type {
   ListReleasesResponse,
   ListTasksQuery,
   ListTasksResponse,
+  MetricsCostResponse,
+  MetricsQualityResponse,
+  MetricsRuntimeResponse,
   MetricsSummaryResponse,
   PluginActionResponse,
   PolicySimulationRequest,
@@ -212,6 +215,71 @@ const mockPlugins: TeamPluginsResponse = {
   sharedSkills: ["code-review"]
 };
 
+const mockMetricsCost: MetricsCostResponse = {
+  projectId: "project-harness",
+  totalCostUsd: 4.25,
+  modelCostUsd: 3.75,
+  toolCostUsd: 0.5,
+  byModel: [
+    { name: "gpt-5-mini", costUsd: 2.5 },
+    { name: "gpt-5", costUsd: 1.25 }
+  ],
+  byTool: [
+    { name: "run_command", costUsd: 0.3 },
+    { name: "search_text", costUsd: 0.2 }
+  ],
+  bySkill: [
+    { name: "code-review", costUsd: 2.8 },
+    { name: "deep-research", costUsd: 1.45 }
+  ]
+};
+
+const mockMetricsQuality: MetricsQualityResponse = {
+  projectId: "project-harness",
+  totalRuns: 4,
+  passRate: 0.75,
+  averageScore: 0.83,
+  points: [
+    {
+      suiteId: "release-gate",
+      passed: true,
+      score: 0.91,
+      timestamp: "2026-07-10T00:00:00.000Z"
+    },
+    {
+      suiteId: "release-gate",
+      passed: true,
+      score: 0.88,
+      timestamp: "2026-07-10T01:00:00.000Z"
+    },
+    {
+      suiteId: "nightly-regression",
+      passed: false,
+      score: 0.65,
+      timestamp: "2026-07-10T02:00:00.000Z"
+    },
+    {
+      suiteId: "nightly-regression",
+      passed: true,
+      score: 0.88,
+      timestamp: "2026-07-10T03:00:00.000Z"
+    }
+  ]
+};
+
+const mockMetricsRuntime: MetricsRuntimeResponse = {
+  projectId: "project-harness",
+  totalRuns: 5,
+  successRate: 0.8,
+  averageIterations: 4.2,
+  averageApprovalWaitMs: 90000,
+  byStatus: {
+    completed: 4,
+    failed: 1,
+    cancelled: 0
+  }
+};
+
 export function createMockApiClient(): ApiClient {
   return {
     async getHealth(): Promise<HealthResponse> {
@@ -334,6 +402,15 @@ export function createMockApiClient(): ApiClient {
         waitingApprovalTasks: 1,
         costTodayUsd: 1.2
       };
+    },
+    async getMetricsCost(): Promise<MetricsCostResponse> {
+      return mockMetricsCost;
+    },
+    async getMetricsQuality(): Promise<MetricsQualityResponse> {
+      return mockMetricsQuality;
+    },
+    async getMetricsRuntime(): Promise<MetricsRuntimeResponse> {
+      return mockMetricsRuntime;
     },
     async getRunTrace(): Promise<RunTraceResponse> {
       return {

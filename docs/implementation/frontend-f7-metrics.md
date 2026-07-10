@@ -46,3 +46,43 @@
 
 - Runtime 运行效率指标尚无已有核心 store。
 - 处理方式：F7 先新增 API gateway 内存 runtime metrics seed，后续生产化再接入任务事件流和 Trace 聚合。
+
+## 功能点 2：前端 Metrics API Client、Mock 与 View-model
+
+### 目标
+
+- 前端通过 typed API client 调用 F7 metrics endpoints。
+- Mock client 提供同形状 metrics 数据，保证无后端时也能渲染 F7 页面。
+- Metrics view-model 统一处理：
+  - 成本金额格式化。
+  - 通过率和成功率百分比。
+  - 模型、工具、Skill 成本归因。
+  - Eval 质量趋势点。
+  - Runtime 状态分布和审批等待时长。
+
+### 实现
+
+- 更新 `apps/web/src/shared/api/client.ts`。
+  - 新增 `getMetricsCost(projectId)`。
+  - 新增 `getMetricsQuality(projectId)`。
+  - 新增 `getMetricsRuntime(projectId)`。
+- 更新 `apps/web/src/shared/api/mock.ts`。
+  - mock client 同步补齐 F7 方法。
+  - 提供成本、质量和 runtime mock 数据。
+- 新增 `apps/web/src/features/metrics/metrics-view-model.ts`。
+  - `createMetricsViewModel()` 输出 summary、cost、quality 和 runtime 分区。
+  - 统一格式化金额、百分比和审批等待时长。
+
+### 测试验证
+
+- 新增 `tests/web/api-client-metrics.test.ts`。
+  - 验证 cost、quality、runtime 三条 API 路径。
+- 新增 `tests/web/metrics-view-model.test.ts`。
+  - 验证成本归因、质量趋势、成功率、审批等待时长和状态分布。
+- 验证命令：`npm run test:web`。
+- 当前结果：36 个 web 测试全部通过。
+
+### 问题记录
+
+- F7 扩展 `ApiClient` 后，mock client 必须同步补齐 metrics 方法，否则 `createMockApiClient()` 不满足接口。
+- 处理方式：mock 数据复用真实契约 DTO，保证真实 API 与 mock API 形状一致。
