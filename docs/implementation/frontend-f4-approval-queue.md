@@ -125,3 +125,28 @@
 
 - 第一版 `ApprovalDetailViewModel` 直接继承 `ApprovalDto` 并重写 `suggestions`，TypeScript 仍将 suggestions 视作原始 DTO 类型，导致渲染层访问 `applyAction` 编译失败。
 - 处理方式：使用 `Omit<ApprovalDto, "risk" | "suggestions">` 后重新定义 view-model 字段。
+
+## F4 总体验收
+
+### 已完成范围
+
+- `/approvals` 页面：已接入共享 App Shell，并渲染审批队列。
+- 待审批列表：展示工具、任务、运行、原因和风险等级。
+- 审批详情：展示风险解释、风险因素、工具输入 JSON。
+- Approve / Deny：页面表单通过前端 API client 调用真实 API，并刷新 pending 队列。
+- 风险解释：高风险操作使用 danger 语义和风险卡片强化提示。
+- 规则建议卡片：展示建议标题、描述和 Apply rule 操作。
+- 端到端闭环：approve 后 run effect 为 `continues`，deny 后 run effect 为 `failed`，pending 队列更新。
+
+### 最终验证
+
+- `npm test`：133 个测试全部通过。
+- `npm run test:web`：25 个 web 测试全部通过。
+- `npm run test:e2e`：4 个端到端测试全部通过。
+- `npm run build:web`：通过。
+
+### 未完成或后续增强
+
+- 当前审批操作通过内存 store 更新状态，后续需要接入持久化 ApprovalStore 与 AuditLog。
+- 当前 Approve 后仅返回 run effect 语义，后续需要接入真实 run resume 调度。
+- 当前 Deny 后仅返回 run failed 语义，后续需要写入任务事件流并刷新 Run Detail。
