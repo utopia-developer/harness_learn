@@ -8,6 +8,7 @@ import {
   type MetricsCostResponse,
   type ProjectPolicyResponse,
   type ReleaseReadinessResponse,
+  type SessionResponse,
   type TaskStatus
 } from "../../packages/contracts/src/index.js";
 
@@ -18,6 +19,8 @@ test("contracts expose stable frontend routes and api endpoints", () => {
   assert.equal(WEB_ROUTES.metrics, "/metrics");
   assert.equal(API_ENDPOINTS.consoleDashboard, "/api/v1/console/dashboard");
   assert.equal(API_ENDPOINTS.health, "/api/v1/health");
+  assert.equal(API_ENDPOINTS.session, "/api/v1/session");
+  assert.equal(API_ENDPOINTS.frontendAuditEvents, "/api/v1/frontend/audit-events");
   assert.equal(API_ENDPOINTS.releases, "/api/v1/releases");
   assert.equal(API_ENDPOINTS.releaseReadiness("release-1"), "/api/v1/releases/release-1/readiness");
   assert.equal(API_ENDPOINTS.runReleaseGate("release-1"), "/api/v1/releases/release-1/gate");
@@ -31,6 +34,24 @@ test("contracts expose stable frontend routes and api endpoints", () => {
   assert.equal(API_ENDPOINTS.metricsCost("project-harness"), "/api/v1/metrics/cost?projectId=project-harness");
   assert.equal(API_ENDPOINTS.metricsQuality("project-harness"), "/api/v1/metrics/quality?projectId=project-harness");
   assert.equal(API_ENDPOINTS.metricsRuntime("project-harness"), "/api/v1/metrics/runtime?projectId=project-harness");
+});
+
+test("SessionResponse models the F8 session and permission contract", () => {
+  const response: SessionResponse = {
+    user: {
+      id: "user-1",
+      name: "Platform Viewer",
+      role: "viewer"
+    },
+    permissions: {
+      canEditPolicy: false,
+      canApproveDangerous: false,
+      canManagePlugins: false
+    }
+  };
+
+  assert.equal(response.user.role, "viewer");
+  assert.equal(response.permissions.canEditPolicy, false);
 });
 
 test("ConsoleDashboardResponse models the F0 dashboard contract", () => {

@@ -1,17 +1,26 @@
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import {
+  createServer,
+  type IncomingHttpHeaders,
+  type IncomingMessage,
+  type Server,
+  type ServerResponse
+} from "node:http";
 
 import {
   API_ENDPOINTS,
   type ConsoleDashboardResponse,
   type CreateTaskRequest,
+  type FrontendAuditEventRequest,
   type ListTasksQuery,
   type ApprovalActionRequest,
   type ApprovalStatus,
   type PolicySimulationRequest,
+  type SessionResponse,
   type TaskStatus
 } from "../../../packages/contracts/src/index.js";
 import { createApprovalQueueStore, type ApprovalQueueStore } from "./approval-queue-store.js";
 import { createDemoConsoleDashboard } from "./dashboard-fixture.js";
+import { createFrontendAuditStore, type FrontendAuditStore } from "./frontend-audit-store.js";
 import { createMetricsStore, type MetricsStore } from "./metrics-store.js";
 import { createReleaseReadinessStore, type ReleaseReadinessStore } from "./release-readiness-store.js";
 import { createRunTraceStore, type RunTraceStore } from "./run-trace-store.js";
@@ -26,11 +35,13 @@ export type ApiServerOptions = {
   releaseReadinessStore?: ReleaseReadinessStore;
   teamGovernanceStore?: TeamGovernanceStore;
   metricsStore?: MetricsStore;
+  frontendAuditStore?: FrontendAuditStore;
 };
 
 export type ApiRequest = {
   method?: string;
   url?: string;
+  headers?: IncomingHttpHeaders | Record<string, string | string[] | undefined>;
   body?: unknown;
 };
 
@@ -46,6 +57,7 @@ export function createApiServer(options: ApiServerOptions = {}): Server {
       {
         method: request.method,
         url: request.url,
+        headers: request.headers,
         body: await readJsonBody(request)
       },
       options
@@ -60,6 +72,7 @@ const defaultApprovalQueueStore = createApprovalQueueStore();
 const defaultReleaseReadinessStore = createReleaseReadinessStore();
 const defaultTeamGovernanceStore = createTeamGovernanceStore();
 const defaultMetricsStore = createMetricsStore();
+const defaultFrontendAuditStore = createFrontendAuditStore();
 
 export async function handleApiRequest(
   request: ApiRequest,
@@ -72,12 +85,30 @@ export async function handleApiRequest(
   const releaseReadinessStore = options.releaseReadinessStore ?? defaultReleaseReadinessStore;
   const teamGovernanceStore = options.teamGovernanceStore ?? defaultTeamGovernanceStore;
   const metricsStore = options.metricsStore ?? defaultMetricsStore;
+  const frontendAuditStore = options.frontendAuditStore ?? defaultFrontendAuditStore;
   const pathname = parsePathname(request);
+  const session = parseSession(request);
 
   if (request.method === "GET" && pathname === API_ENDPOINTS.health) {
     return jsonResponse(200, {
       status: "ok",
       service: "harness-api"
+    });
+  }
+
+  if (request.method === "GET" && pathname === API_ENDPOINTS.session) {
+    return jsonResponse(200, session);
+  }
+
+  if (request.method === "POST" && pathname === API_ENDPOINTS.frontendAuditEvents) {
+    return jsonResponse(201, {
+      event: frontendAuditStore.record(
+        {
+          actorId: session.user.id,
+          role: session.user.role
+        },
+        parseFrontendAuditEventRequest(request.body)
+      )
     });
   }
 
@@ -164,6 +195,9 @@ export async function handleApiRequest(
   }
 
   if (request.method === "PUT" && projectPolicyMatch) {
+    if (!session.permissions.canEditPolicy) {
+      return forbiddenResponse("Admin role required to update project policy");
+    }
     const policy = teamGovernanceStore.updateProjectPolicy(
       decodeURIComponent(projectPolicyMatch[1]),
       parseProjectPolicyRequest(request.body)
@@ -195,6 +229,9 @@ export async function handleApiRequest(
 
   const pluginActionMatch = pathname.match(/^\/api\/v1\/teams\/([^/]+)\/plugins\/([^/]+)\/(install|enable|disable)$/);
   if (request.method === "POST" && pluginActionMatch) {
+    if (!session.permissions.canManagePlugins) {
+      return forbiddenResponse("Admin role required to manage team plugins");
+    }
     const teamId = decodeURIComponent(pluginActionMatch[1]);
     const pluginId = decodeURIComponent(pluginActionMatch[2]);
     const action = pluginActionMatch[3];
@@ -336,6 +373,40 @@ function parseApprovalActionRequest(body: unknown): ApprovalActionRequest {
   return typeof input.reason === "string" ? { reason: input.reason } : {};
 }
 
+function parseFrontendAuditEventRequest(body: unknown): FrontendAuditEventRequest {
+  if (!body || typeof body !== "object") {
+    return {
+      action: "unknown",
+      target: "unknown",
+      route: "/",
+      metadata: {}
+    };
+  }
+  const input = body as Record<string, unknown>;
+  return {
+    action: typeof input.action === "string" ? input.action : "unknown",
+    target: typeof input.target === "string" ? input.target : "unknown",
+    route: typeof input.route === "string" ? input.route : "/",
+    metadata: parseFrontendAuditMetadata(input.metadata)
+  };
+}
+
+function parseFrontendAuditMetadata(
+  metadata: unknown
+): Record<string, string | number | boolean> {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(metadata as Record<string, unknown>).filter(
+      (entry): entry is [string, string | number | boolean] =>
+        typeof entry[1] === "string" ||
+        typeof entry[1] === "number" ||
+        typeof entry[1] === "boolean"
+    )
+  );
+}
+
 function parseProjectPolicyRequest(body: unknown): { allowedTools: string[]; allowedModels: string[] } {
   if (!body || typeof body !== "object") {
     return {
@@ -363,6 +434,51 @@ function parsePolicySimulationRequest(body: unknown): PolicySimulationRequest {
     tool: typeof input.tool === "string" ? input.tool : undefined,
     model: typeof input.model === "string" ? input.model : undefined
   };
+}
+
+function parseSession(request: ApiRequest): SessionResponse {
+  const role = parseRole(readHeader(request, "x-harness-role"));
+  const userId = readHeader(request, "x-harness-user-id") ?? "user-demo";
+
+  return {
+    user: {
+      id: userId,
+      name: role === "admin"
+        ? "Harness Admin"
+        : role === "developer"
+          ? "Harness Developer"
+          : "Harness Viewer",
+      role
+    },
+    permissions: {
+      canEditPolicy: role === "admin",
+      canApproveDangerous: role === "admin" || role === "developer",
+      canManagePlugins: role === "admin"
+    }
+  };
+}
+
+function parseRole(value: string | undefined): SessionResponse["user"]["role"] {
+  if (value === "viewer" || value === "developer" || value === "admin") {
+    return value;
+  }
+  return "admin";
+}
+
+function readHeader(request: ApiRequest, name: string): string | undefined {
+  const headers = request.headers ?? {};
+  const value = headers[name] ?? headers[name.toLowerCase()];
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+  return value;
+}
+
+function forbiddenResponse(message: string): ApiResponse {
+  return jsonResponse(403, {
+    error: "forbidden",
+    message
+  });
 }
 
 function parseStatus(value: string | null): TaskStatus | "all" | undefined {

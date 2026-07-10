@@ -334,6 +334,43 @@ export type PluginActionResponse = {
   message: string;
 };
 
+export type UserRole = "viewer" | "developer" | "admin";
+
+export type SessionResponse = {
+  user: {
+    id: string;
+    name: string;
+    role: UserRole;
+  };
+  permissions: {
+    canEditPolicy: boolean;
+    canApproveDangerous: boolean;
+    canManagePlugins: boolean;
+  };
+};
+
+export type FrontendAuditEventRequest = {
+  action: string;
+  target: string;
+  route: string;
+  metadata?: Record<string, string | number | boolean>;
+};
+
+export type FrontendAuditEventDto = {
+  id: string;
+  actorId: string;
+  role: UserRole;
+  action: string;
+  target: string;
+  route: string;
+  metadata: Record<string, string | number | boolean>;
+  recordedAt: string;
+};
+
+export type FrontendAuditEventResponse = {
+  event: FrontendAuditEventDto;
+};
+
 export type MetricsCostBreakdownItemDto = {
   name: string;
   costUsd: number;
@@ -379,6 +416,8 @@ export type MetricsRuntimeResponse = {
 
 export const API_ENDPOINTS = {
   health: "/api/v1/health",
+  session: "/api/v1/session",
+  frontendAuditEvents: "/api/v1/frontend/audit-events",
   consoleDashboard: "/api/v1/console/dashboard",
   tasks: "/api/v1/tasks",
   releases: "/api/v1/releases",
