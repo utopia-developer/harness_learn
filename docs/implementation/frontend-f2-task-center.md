@@ -85,3 +85,55 @@
 
 - 扩展 `ApiClient` 接口后，`createMockApiClient()` 未实现新增方法，导致 TypeScript 编译失败。
 - 处理方式：mock client 同步补齐 F2 方法，避免 mock 与真实 API client 契约漂移。
+
+## 功能点 3：Task Center 页面渲染、筛选搜索排序与创建闭环
+
+### 目标
+
+- `/tasks` 页面实际渲染 Task Center，而不是复用 F0 Console Dashboard。
+- 页面展示任务健康摘要、状态筛选、搜索、排序、新建任务表单、任务列表和详情跳转。
+- 新建任务表单提交到真实 API client，创建后刷新任务列表。
+- 端到端验证前端创建任务后能在页面列表中看到新任务。
+
+### 实现
+
+- 更新 `apps/web/src/app/render.ts`。
+  - `renderApp()` 在 `/tasks` 路径下调用：
+    - `client.listTasks()`
+    - `client.getReleaseSummary()`
+    - `client.getMetricsSummary()`
+  - `renderAppHtml()` 支持 `taskCenter` 输入。
+  - 新增 Task Center 内容渲染：
+    - health metrics
+    - filter/search/sort form
+    - 新建任务 drawer 风格表单
+    - task table
+    - 详情链接 `/tasks/:taskId/runs/latest`
+  - 新增 `bindTaskCreateForm()`，拦截新建任务表单提交，调用 `client.createTask()` 后刷新列表。
+- 新增 `apps/web/src/features/tasks/task-create-form.ts`。
+  - 将 `FormData` 转为 `CreateTaskRequest`。
+  - 对空目标做错误校验。
+- 更新 `apps/web/src/styles.css`。
+  - 增加 Task Center 表单、表格、Badge 样式。
+  - 保持移动端单列布局。
+- 更新 `tests/e2e/frontend-api.e2e.test.ts`。
+  - 通过前端 API client 调用 API gateway 创建任务。
+  - 再读取任务列表、release summary、metrics summary。
+  - 最后渲染页面 HTML 并断言新任务出现在 Task Center 中。
+
+### 测试验证
+
+- 新增 `tests/web/task-center-render.test.ts`。
+  - 覆盖 health summary、筛选/search/sort 控件、新建任务表单、任务行、状态 Badge、详情链接。
+- 新增 `tests/web/task-create-form.test.ts`。
+  - 覆盖表单字段到 `CreateTaskRequest` 的映射。
+  - 覆盖空 goal 校验。
+- 更新 `tests/e2e/frontend-api.e2e.test.ts`。
+- 验证命令：
+  - `npm run test:web`：17 个 web 测试全部通过。
+  - `npm run test:e2e`：2 个 e2e 测试全部通过。
+
+### 问题记录
+
+- 第一版页面只有 HTML 表单，如果浏览器默认提交，将无法发送 JSON body 到 `POST /api/v1/tasks`。
+- 处理方式：在 `renderApp()` 挂载后绑定表单 submit 事件，使用 `FormData -> CreateTaskRequest -> client.createTask()` 的前端 API client 路径创建任务，再刷新列表。

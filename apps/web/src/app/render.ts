@@ -1,10 +1,18 @@
 import type { ConsoleDashboardResponse } from "../../../../packages/contracts/src/index.js";
+import type {
+  ListTasksResponse,
+  MetricsSummaryResponse,
+  ReleaseSummaryResponse,
+  TaskStatus
+} from "../../../../packages/contracts/src/index.js";
 import {
   createLoadingState,
   createMetricCard
 } from "../design-system/index.js";
 import type { ApiClient } from "../shared/api/client.js";
 import { createDashboardViewModel } from "../features/console/dashboard-view-model.js";
+import { createTaskRequestFromFormData } from "../features/tasks/task-create-form.js";
+import { createTaskCenterViewModel } from "../features/tasks/task-center-view-model.js";
 import { createAppShellViewModel } from "./shell.js";
 
 export async function renderApp(root: HTMLElement, client: ApiClient): Promise<void> {
@@ -15,6 +23,25 @@ export async function renderApp(root: HTMLElement, client: ApiClient): Promise<v
   });
 
   try {
+    if (pathname.startsWith("/tasks")) {
+      const [tasks, releaseSummary, metricsSummary] = await Promise.all([
+        client.listTasks(),
+        client.getReleaseSummary(),
+        client.getMetricsSummary()
+      ]);
+      root.innerHTML = renderAppHtml({
+        state: "ready",
+        pathname,
+        taskCenter: {
+          tasks,
+          releaseSummary,
+          metricsSummary
+        }
+      });
+      bindTaskCreateForm(root, client, pathname);
+      return;
+    }
+
     const dashboard = await client.getConsoleDashboard();
     root.innerHTML = renderAppHtml({
       state: "ready",
@@ -30,12 +57,42 @@ export async function renderApp(root: HTMLElement, client: ApiClient): Promise<v
   }
 }
 
+function bindTaskCreateForm(root: HTMLElement, client: ApiClient, pathname: string): void {
+  const form = root.querySelector<HTMLFormElement>(".task-create-form");
+  form?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void (async () => {
+      await client.createTask(createTaskRequestFromFormData(new FormData(form)));
+      const [tasks, releaseSummary, metricsSummary] = await Promise.all([
+        client.listTasks(),
+        client.getReleaseSummary(),
+        client.getMetricsSummary()
+      ]);
+      root.innerHTML = renderAppHtml({
+        state: "ready",
+        pathname,
+        taskCenter: {
+          tasks,
+          releaseSummary,
+          metricsSummary
+        }
+      });
+      bindTaskCreateForm(root, client, pathname);
+    })();
+  });
+}
+
 export type RenderState = "loading" | "ready" | "error";
 
 export type RenderAppHtmlInput = {
   state: RenderState;
   pathname: string;
   dashboard?: ConsoleDashboardResponse;
+  taskCenter?: {
+    tasks: ListTasksResponse;
+    releaseSummary: ReleaseSummaryResponse;
+    metricsSummary: MetricsSummaryResponse;
+  };
   error?: unknown;
 };
 
@@ -62,7 +119,11 @@ export function renderAppHtml(input: RenderAppHtmlInput): string {
           </div>
           <span class="status-pill">${stateLabel(input.state)}</span>
         </header>
-        ${renderContent(input.state, viewModel, input.error)}
+        ${renderContent(input.state, {
+          dashboard: viewModel,
+          taskCenter: input.taskCenter,
+          error: input.error
+        })}
       </main>
     </div>
   `;
@@ -70,8 +131,11 @@ export function renderAppHtml(input: RenderAppHtmlInput): string {
 
 function renderContent(
   state: RenderState,
-  viewModel?: ReturnType<typeof createDashboardViewModel>,
-  error?: unknown
+  content: {
+    dashboard?: ReturnType<typeof createDashboardViewModel>;
+    taskCenter?: NonNullable<RenderAppHtmlInput["taskCenter"]>;
+    error?: unknown;
+  }
 ): string {
   if (state === "loading") {
     const loading = createLoadingState("正在加载运行数据...");
@@ -82,15 +146,20 @@ function renderContent(
     return `
       <section class="panel error-panel" role="alert">
         <h2>无法加载 Console Dashboard</h2>
-        <p>${escapeHtml(error instanceof Error ? error.message : String(error))}</p>
+        <p>${escapeHtml(content.error instanceof Error ? content.error.message : String(content.error))}</p>
       </section>
     `;
   }
 
-  if (!viewModel) {
+  if (content.taskCenter) {
+    return renderTaskCenterContent(content.taskCenter);
+  }
+
+  if (!content.dashboard) {
     return "";
   }
 
+  const viewModel = content.dashboard;
   return `
     <section class="metrics-grid">
       ${[
@@ -123,6 +192,115 @@ function renderContent(
       `).join("")}
     </section>
   `;
+}
+
+function renderTaskCenterContent(
+  taskCenter: NonNullable<RenderAppHtmlInput["taskCenter"]>
+): string {
+  const viewModel = createTaskCenterViewModel(taskCenter);
+
+  return `
+    <section class="metrics-grid">
+      ${Object.values(viewModel.health).map((metric) =>
+        `<article><span>${escapeHtml(metric.label)}</span><strong>${escapeHtml(metric.value)}</strong></article>`
+      ).join("")}
+    </section>
+    <section class="panel task-toolbar">
+      <form class="task-filter-form" method="get" action="/tasks" aria-label="任务筛选">
+        <label>
+          状态
+          <select name="status">
+            ${renderStatusOptions(viewModel.filters.status)}
+          </select>
+        </label>
+        <label>
+          搜索
+          <input name="search" value="${escapeHtml(viewModel.filters.search)}" placeholder="搜索任务目标或项目" />
+        </label>
+        <label>
+          排序
+          <select name="sort">
+            ${renderSortOptions(viewModel.filters.sort)}
+          </select>
+        </label>
+        <button type="submit">应用</button>
+      </form>
+    </section>
+    <section class="panel task-create-drawer" aria-label="新建任务">
+      <h2>新建任务</h2>
+      <form class="task-create-form" method="post" action="/api/v1/tasks">
+        <label>
+          目标
+          <textarea name="goal" rows="3" required placeholder="描述希望 Agent 完成的任务"></textarea>
+        </label>
+        <label>
+          项目
+          <input name="projectId" value="project-harness" required />
+        </label>
+        <input type="hidden" name="userId" value="user-demo" />
+        <button type="submit">创建任务</button>
+      </form>
+    </section>
+    <section class="panel">
+      <h2>任务列表</h2>
+      ${viewModel.empty ? "<p>没有匹配的任务</p>" : `
+        <table class="task-table">
+          <caption>任务列表</caption>
+          <thead>
+            <tr>
+              <th scope="col">目标</th>
+              <th scope="col">状态</th>
+              <th scope="col">审批</th>
+              <th scope="col">Release</th>
+              <th scope="col">成本</th>
+              <th scope="col">详情</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${viewModel.rows.map((row) => `
+              <tr>
+                <td>
+                  <strong>${escapeHtml(row.goal)}</strong>
+                  <span>${escapeHtml(row.projectId)} · ${escapeHtml(row.updatedAt)}</span>
+                </td>
+                <td><span class="badge badge-${escapeHtml(row.status.tone)}">${escapeHtml(row.status.label)}</span></td>
+                <td>${row.pendingApprovalCount}</td>
+                <td><span class="badge badge-${escapeHtml(row.releaseGateStatus.tone)}">${escapeHtml(row.releaseGateStatus.label)}</span></td>
+                <td>${escapeHtml(row.costUsd)}</td>
+                <td><a href="${row.detailHref}">查看</a></td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `}
+    </section>
+  `;
+}
+
+function renderStatusOptions(current: TaskStatus | "all"): string {
+  const options: Array<{ value: TaskStatus | "all"; label: string }> = [
+    { value: "all", label: "全部" },
+    { value: "pending", label: "Pending" },
+    { value: "running", label: "Running" },
+    { value: "waiting_approval", label: "Waiting approval" },
+    { value: "completed", label: "Completed" },
+    { value: "failed", label: "Failed" }
+  ];
+  return options.map((option) =>
+    `<option value="${option.value}"${option.value === current ? " selected" : ""}>${option.label}</option>`
+  ).join("");
+}
+
+function renderSortOptions(current: string): string {
+  const options = [
+    { value: "updated_desc", label: "最近更新" },
+    { value: "updated_asc", label: "最早更新" },
+    { value: "status_asc", label: "状态" },
+    { value: "goal_asc", label: "目标" }
+  ];
+  return options.map((option) =>
+    `<option value="${option.value}"${option.value === current ? " selected" : ""}>${option.label}</option>`
+  ).join("");
 }
 
 function stateLabel(state: RenderState): string {
