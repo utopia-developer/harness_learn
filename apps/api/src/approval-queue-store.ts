@@ -9,6 +9,7 @@ import type {
 } from "../../../packages/contracts/src/index.js";
 
 export type ApprovalQueueStore = {
+  getApproval(approvalId: string): ApprovalDto | undefined;
   listApprovals(status?: ApprovalStatus | "all"): ApprovalQueueResponse;
   approve(approvalId: string, input?: ApprovalActionRequest): ApprovalActionResponse | undefined;
   deny(approvalId: string, input?: ApprovalActionRequest): ApprovalActionResponse | undefined;
@@ -19,6 +20,10 @@ export function createApprovalQueueStore(seed = createSeedApprovals()): Approval
   const approvals = seed.map(cloneApproval);
 
   return {
+    getApproval(approvalId) {
+      const approval = approvals.find((item) => item.id === approvalId);
+      return approval ? cloneApproval(approval) : undefined;
+    },
     listApprovals(status = "pending") {
       const filtered = approvals.filter((approval) =>
         status === "all" ? true : approval.status === status

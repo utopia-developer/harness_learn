@@ -253,9 +253,24 @@ export async function handleApiRequest(
 
   const approveMatch = pathname.match(/^\/api\/v1\/approvals\/([^/]+)\/approve$/);
   if (request.method === "POST" && approveMatch) {
+    const approvalId = decodeURIComponent(approveMatch[1]);
+    const input = parseApprovalActionRequest(request.body);
+    const approval = approvalQueueStore.getApproval(approvalId);
+    if (!approval) {
+      return jsonResponse(404, {
+        error: "not_found",
+        message: "Approval not found"
+      });
+    }
+    if (approval.risk.level === "high" && input.confirmedRisk !== true) {
+      return jsonResponse(400, {
+        error: "confirmation_required",
+        message: "High risk approval requires explicit confirmation"
+      });
+    }
     const result = approvalQueueStore.approve(
-      decodeURIComponent(approveMatch[1]),
-      parseApprovalActionRequest(request.body)
+      approvalId,
+      input
     );
     return result ? jsonResponse(200, result) : jsonResponse(404, {
       error: "not_found",

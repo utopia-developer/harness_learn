@@ -33,7 +33,10 @@ test("api server approves an approval and removes it from pending queue", async 
   const approveResponse = await handleApiRequest({
     method: "POST",
     url: API_ENDPOINTS.approveApproval("approval-run-command"),
-    body: { reason: "Reviewed command" }
+    body: {
+      reason: "Reviewed command",
+      confirmedRisk: true
+    }
   }, { approvalQueueStore });
   const approved = approveResponse.body as ApprovalActionResponse;
 
@@ -47,6 +50,22 @@ test("api server approves an approval and removes it from pending queue", async 
   }, { approvalQueueStore });
   const list = listResponse.body as ApprovalQueueResponse;
   assert.deepEqual(list.approvals.map((approval) => approval.id), ["approval-write-file"]);
+});
+
+test("api server requires explicit confirmation before approving high risk approvals", async () => {
+  const approvalQueueStore = createApprovalQueueStore();
+
+  const response = await handleApiRequest({
+    method: "POST",
+    url: API_ENDPOINTS.approveApproval("approval-run-command"),
+    body: { reason: "Reviewed command" }
+  }, { approvalQueueStore });
+
+  assert.equal(response.statusCode, 400);
+  assert.deepEqual(response.body, {
+    error: "confirmation_required",
+    message: "High risk approval requires explicit confirmation"
+  });
 });
 
 test("api server denies an approval and marks related run as failed", async () => {

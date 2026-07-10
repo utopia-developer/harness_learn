@@ -152,7 +152,8 @@ test("frontend renders approval queue and updates it after approval actions", as
     approvalQueue: before
   });
   const approved = await client.approveApproval("approval-run-command", {
-    reason: "Reviewed"
+    reason: "Reviewed",
+    confirmedRisk: true
   });
   const denied = await client.denyApproval("approval-write-file", {
     reason: "Risk too high"

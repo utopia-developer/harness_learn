@@ -104,3 +104,40 @@ F8 closes the frontend product loop for production hardening:
 ### Issues Encountered
 
 - The first performance-budget assertion expected raw event ids in the HTML, but the page renders event titles rather than ids. The assertion was corrected to validate visible event content instead of an implementation detail.
+
+## Follow-up Fix: Dogfood Runtime Gaps
+
+### What Changed
+
+- Fixed the local web dev server API proxy:
+  - Forwards request headers into the API gateway.
+  - Reads and forwards JSON bodies for `POST`, `PUT`, and `PATCH`.
+  - Preserves plain-text API responses such as JSONL exports instead of double-encoding them.
+- Added SPA fallback routing so direct browser visits to `/tasks`, `/approvals`, `/settings/policy`, `/settings/plugins`, `/metrics`, and run detail URLs serve `index.html`.
+- Moved web dev server startup behind a main-module guard and exported pure helpers for regression tests.
+- Enforced high-risk approval confirmation at the API layer, not only in the UI.
+- Added `.DS_Store` to `.gitignore` to keep macOS metadata out of working tree status.
+
+### Design Notes
+
+- Browser dogfood must use the same request semantics as tests. The dev server now passes method, URL, headers, and parsed body into `handleApiRequest()`.
+- UI confirmation remains useful for operators, but API confirmation is now the security boundary for high-risk approvals.
+- The server keeps framework-free static serving, but app routes now behave like a single-page console during local verification.
+
+### Verification
+
+- `npm run build`
+  - Result: TypeScript build passed.
+- `npm run test:web`
+  - Result: 43 tests passed.
+- `npm run test:e2e`
+  - Result: 8 tests passed.
+- `npm run build:web`
+  - Result: TypeScript build passed.
+- `npm test`
+  - Result: 175 tests passed.
+
+### Issues Encountered
+
+- The first red test failed at compile time because `createApiGatewayRequest()` and `resolveWebAsset()` did not exist. The dev server was refactored to expose these helpers and keep runtime startup side-effect free when imported by tests.
+- After adding `confirmedRisk` to high-risk approval calls, an existing API client assertion still expected the old request body. The assertion was updated to match the stricter API contract.

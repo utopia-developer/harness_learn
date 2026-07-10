@@ -37,7 +37,10 @@ test("api client calls approval queue endpoints", async () => {
   });
 
   await client.listApprovals({ status: "pending" });
-  await client.approveApproval("approval-run-command", { reason: "Looks safe" });
+  await client.approveApproval("approval-run-command", {
+    reason: "Looks safe",
+    confirmedRisk: true
+  });
   await client.denyApproval("approval-write-file", { reason: "Too risky" });
   await client.applyPolicySuggestion("suggestion-allow-npm-test");
 
@@ -47,7 +50,10 @@ test("api client calls approval queue endpoints", async () => {
     "http://harness.local/api/v1/approvals/approval-write-file/deny",
     "http://harness.local/api/v1/policies/suggestions/suggestion-allow-npm-test/apply"
   ]);
-  assert.equal(calls[1].init?.body, JSON.stringify({ reason: "Looks safe" }));
+  assert.equal(calls[1].init?.body, JSON.stringify({
+    reason: "Looks safe",
+    confirmedRisk: true
+  }));
   assert.equal(calls[2].init?.body, JSON.stringify({ reason: "Too risky" }));
 });
 
