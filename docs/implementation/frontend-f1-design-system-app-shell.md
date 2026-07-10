@@ -114,3 +114,26 @@
 - 第一版 F0 渲染层将 Shell HTML 写在 `renderApp()` 内部，测试无法直接复用同一套页面生成逻辑。
 - 处理方式：提取 `renderAppHtml()`，让 DOM 挂载和测试都使用同一条渲染路径。
 - CSS 一开始缺少 `:focus-visible` 和 `[aria-current="page"]`，新增测试后补齐真实样式，避免只在 view-model 层声明可访问性。
+
+## F1 总体验收
+
+### 已完成范围
+
+- App Shell：Sidebar、Topbar、内容区域已抽象为 `createAppShellViewModel()` 并接入渲染层。
+- 基础组件：Button、Badge、Card、Table、MetricCard、ProgressBar、CodeBlock 已形成可测试 view-model。
+- 状态组件：Empty、Loading、Error、PermissionRiskBadge 已形成可测试 view-model，其中 Loading 和 Error 已接入页面渲染。
+- 设计 token：颜色、间距、圆角、字体、状态色和焦点 ring 已沉淀。
+- 5 个核心页面：`/tasks`、`/approvals`、`/releases/current`、`/settings/policy`、`/settings/plugins` 共享同一套导航与布局。
+- 可访问性：当前导航使用 `aria-current="page"`，主内容区有页面级 aria label，Loading 使用 `aria-live="polite"`，Error 使用 `role="alert"`，CSS 包含 `:focus-visible` 焦点样式。
+
+### 最终验证
+
+- `npm test`：105 个测试全部通过。
+- `npm run test:web`：11 个 web 测试全部通过。
+- `npm run test:e2e`：1 个端到端测试通过，覆盖前端 API client -> API gateway -> 后端 Console Dashboard -> 页面 HTML。
+- `npm run build:web`：通过。
+
+### 未完成或后续增强
+
+- 尚未引入 React/Vite/MSW，原因仍是本地环境此前无法联网安装依赖；当前 F1 先以 TypeScript view-model 和 DOM HTML 渲染闭合产品能力。
+- 后续恢复依赖安装后，可在不改变 contracts、API client、view-model 和测试语义的前提下，将 `renderAppHtml()` 替换为 React 组件树。
