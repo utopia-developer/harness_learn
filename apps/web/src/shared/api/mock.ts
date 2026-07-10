@@ -9,10 +9,13 @@ import type {
   ApprovalQueueResponse,
   ApprovalStatus,
   ApplyPolicySuggestionResponse,
+  ListReleasesResponse,
   ListTasksQuery,
   ListTasksResponse,
   MetricsSummaryResponse,
   ReplayCaseResponse,
+  ReleaseGateActionResponse,
+  ReleaseReadinessResponse,
   ReleaseSummaryResponse,
   RunTraceResponse,
   TaskCenterTaskDto,
@@ -98,6 +101,62 @@ const mockApproval: ApprovalDto = {
   ]
 };
 
+const mockReleaseReadiness: ReleaseReadinessResponse = {
+  release: {
+    id: "release-console-dogfood",
+    projectId: "project-harness",
+    version: "2026.07.10-console",
+    title: "Harness Console Dogfood",
+    status: "blocked",
+    generatedAt: "2026-07-10T00:02:00.000Z"
+  },
+  summary: "Release release-console-dogfood is blocked for project project-harness",
+  checks: [
+    {
+      name: "eval",
+      label: "Replay Eval",
+      passed: false,
+      detail: "case-console-approval: Output changed"
+    },
+    {
+      name: "cost",
+      label: "Cost Budget",
+      passed: true,
+      detail: "Cost 2.1 within budget 5"
+    },
+    {
+      name: "quality",
+      label: "Quality Trend",
+      passed: false,
+      detail: "Quality runs 1 below required 2"
+    }
+  ],
+  blockers: [
+    "eval: case-console-approval: Output changed",
+    "quality: Quality runs 1 below required 2"
+  ],
+  evidence: {
+    auditEventCount: 2,
+    auditJsonlHref: "/api/v1/releases/release-console-dogfood/audit.jsonl",
+    traceIds: ["trace-f3-demo", "trace-f4-approval"]
+  }
+};
+
+const mockReleases: ListReleasesResponse = {
+  releases: [
+    mockReleaseReadiness.release,
+    {
+      id: "release-runtime-baseline",
+      projectId: "project-harness",
+      version: "2026.07.09-runtime",
+      title: "Runtime Baseline",
+      status: "ready",
+      generatedAt: "2026-07-09T00:02:00.000Z"
+    }
+  ],
+  total: 2
+};
+
 export function createMockApiClient(): ApiClient {
   return {
     async getHealth(): Promise<HealthResponse> {
@@ -136,6 +195,23 @@ export function createMockApiClient(): ApiClient {
           costUsd: 0
         }
       };
+    },
+    async listReleases(): Promise<ListReleasesResponse> {
+      return mockReleases;
+    },
+    async getReleaseReadiness(): Promise<ReleaseReadinessResponse> {
+      return mockReleaseReadiness;
+    },
+    async runReleaseGate(): Promise<ReleaseGateActionResponse> {
+      return {
+        releaseId: mockReleaseReadiness.release.id,
+        status: mockReleaseReadiness.release.status,
+        message: "Release release-console-dogfood gate evaluated as blocked.",
+        readiness: mockReleaseReadiness
+      };
+    },
+    async getReleaseAuditJsonl(): Promise<string> {
+      return "{\"action\":\"release.gate.started\"}\n{\"action\":\"release.gate.completed\"}";
     },
     async getReleaseSummary(): Promise<ReleaseSummaryResponse> {
       return {

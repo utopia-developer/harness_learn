@@ -8,10 +8,13 @@ import {
   type ConsoleDashboardResponse,
   type CreateTaskRequest,
   type CreateTaskResponse,
+  type ListReleasesResponse,
   type ListTasksQuery,
   type ListTasksResponse,
   type MetricsSummaryResponse,
   type ReplayCaseResponse,
+  type ReleaseGateActionResponse,
+  type ReleaseReadinessResponse,
   type ReleaseSummaryResponse,
   type RunTraceResponse,
   type ToolOutputResponse
@@ -27,6 +30,10 @@ export type ApiClient = {
   getConsoleDashboard(): Promise<ConsoleDashboardResponse>;
   listTasks(query?: ListTasksQuery): Promise<ListTasksResponse>;
   createTask(input: CreateTaskRequest): Promise<CreateTaskResponse>;
+  listReleases(): Promise<ListReleasesResponse>;
+  getReleaseReadiness(releaseId: string): Promise<ReleaseReadinessResponse>;
+  runReleaseGate(releaseId: string): Promise<ReleaseGateActionResponse>;
+  getReleaseAuditJsonl(releaseId: string): Promise<string>;
   getReleaseSummary(): Promise<ReleaseSummaryResponse>;
   getMetricsSummary(): Promise<MetricsSummaryResponse>;
   getRunTrace(taskId: string, runId: string): Promise<RunTraceResponse>;
@@ -68,6 +75,31 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
         baseUrl,
         API_ENDPOINTS.tasks,
         input
+      ),
+    listReleases: () =>
+      getJson<ListReleasesResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.releases
+      ),
+    getReleaseReadiness: (releaseId) =>
+      getJson<ReleaseReadinessResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.releaseReadiness(releaseId)
+      ),
+    runReleaseGate: (releaseId) =>
+      postJson<ReleaseGateActionResponse>(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.runReleaseGate(releaseId),
+        {}
+      ),
+    getReleaseAuditJsonl: (releaseId) =>
+      getText(
+        fetchImpl,
+        baseUrl,
+        API_ENDPOINTS.releaseAuditJsonl(releaseId)
       ),
     getReleaseSummary: () =>
       getJson<ReleaseSummaryResponse>(

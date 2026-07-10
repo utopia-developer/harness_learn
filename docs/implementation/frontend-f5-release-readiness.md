@@ -48,3 +48,45 @@
 
 - 第一轮使用 `npm test -- tests/contracts/contracts.test.ts tests/api/release-api.test.ts` 做针对性验证时，项目脚本会先运行编译后测试，再把源码 TS 路径继续传给 `node --test`，导致 Node 尝试直接执行源码 import 并报 `ERR_MODULE_NOT_FOUND`。
 - 处理方式：先运行 `npm run build`，再直接运行编译后的 `dist/tests/...` 测试文件。
+
+## 功能点 2：前端 Release API Client、Mock 与 View-model
+
+### 目标
+
+- 前端通过 typed API client 调用 F5 endpoints。
+- Mock client 提供同形状 release 数据，保证无后端时也能渲染 F5 页面。
+- Release Readiness view-model 统一处理：
+  - 发布列表。
+  - ready / blocked 状态视觉。
+  - Gate checks。
+  - Blockers。
+  - Evidence 与 Audit JSONL 下载入口。
+  - Run gate 操作元数据。
+
+### 实现
+
+- 更新 `apps/web/src/shared/api/client.ts`。
+  - 新增 `listReleases()`。
+  - 新增 `getReleaseReadiness(releaseId)`。
+  - 新增 `runReleaseGate(releaseId)`。
+  - 新增 `getReleaseAuditJsonl(releaseId)`。
+- 更新 `apps/web/src/shared/api/mock.ts`。
+  - 新增 blocked release 和 ready release mock 数据。
+  - mock client 同步补齐 F5 方法。
+- 新增 `apps/web/src/features/releases/release-readiness-view-model.ts`。
+  - `createReleaseReadinessViewModel()` 输出发布摘要、发布列表、选中 release 详情、checks、blockers、evidence 和 gate action。
+  - `getReleaseStatusPresentation()` 将 `ready/blocked` 映射为 `success/danger`。
+
+### 测试验证
+
+- 新增 `tests/web/api-client-release.test.ts`。
+  - 验证 list、readiness、run gate 和 audit JSONL 的路径与 POST 方法。
+- 新增 `tests/web/release-readiness-view-model.test.ts`。
+  - 验证发布摘要、列表链接、blocked 状态、checks、blockers、evidence 和 Run gate action。
+- 验证命令：`npm run test:web`。
+- 当前结果：28 个 web 测试全部通过。
+
+### 问题记录
+
+- F5 扩展 `ApiClient` 后，mock client 必须同步补齐 release 方法，否则 `createMockApiClient()` 不满足接口。
+- 处理方式：mock 数据复用真实契约 DTO，避免真实 API 与 mock API 漂移。
