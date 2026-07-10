@@ -46,3 +46,42 @@
 
 - `handleApiRequest()` 从同步函数升级为异步函数后，既有 e2e 测试仍按同步返回读取 `body/statusCode/headers`，TypeScript 编译失败。
 - 处理方式：更新 `tests/e2e/frontend-api.e2e.test.ts` 中的 fetch 注入逻辑，显式 `await handleApiRequest()`。
+
+## 功能点 2：前端 Task Center API Client 与 View-model
+
+### 目标
+
+- 前端通过 typed API client 调用 F2 endpoints。
+- Task Center 页面状态由 view-model 聚合，而不是在渲染层散落业务口径。
+- 明确区分任务状态视觉语义，覆盖 `pending`、`running`、`waiting_approval`、`completed`、`failed` 等关键状态。
+
+### 实现
+
+- 更新 `apps/web/src/shared/api/client.ts`。
+  - 新增 `listTasks(query)`。
+  - 新增 `createTask(input)`。
+  - 新增 `getReleaseSummary()`。
+  - 新增 `getMetricsSummary()`。
+  - POST 请求统一发送 JSON body 和 `content-type: application/json`。
+- 更新 `apps/web/src/shared/api/mock.ts`。
+  - mock client 补齐 F2 方法，保持与真实 API client 同一接口。
+- 新增 `apps/web/src/features/tasks/task-center-view-model.ts`。
+  - 聚合任务列表、release summary 和 metrics summary。
+  - 输出 health metric cards。
+  - 输出任务行 view-model：状态 Badge、release gate Badge、成本、Trace 数、待审批数、详情链接。
+  - 提供 `getTaskStatusPresentation()` 统一任务状态视觉语义。
+
+### 测试验证
+
+- 新增 `tests/web/api-client-task-center.test.ts`。
+  - 验证 task list query 参数、create task POST body、release summary、metrics summary 调用。
+- 新增 `tests/web/task-center-view-model.test.ts`。
+  - 验证任务健康摘要。
+  - 验证状态视觉语义。
+- 验证命令：`npm run test:web`。
+- 当前结果：14 个 web 测试全部通过。
+
+### 问题记录
+
+- 扩展 `ApiClient` 接口后，`createMockApiClient()` 未实现新增方法，导致 TypeScript 编译失败。
+- 处理方式：mock client 同步补齐 F2 方法，避免 mock 与真实 API client 契约漂移。

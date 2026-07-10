@@ -1,5 +1,14 @@
 import type { ApiClient, HealthResponse } from "./client.js";
-import type { ConsoleDashboardResponse } from "../../../../../packages/contracts/src/index.js";
+import type {
+  ConsoleDashboardResponse,
+  CreateTaskRequest,
+  CreateTaskResponse,
+  ListTasksQuery,
+  ListTasksResponse,
+  MetricsSummaryResponse,
+  ReleaseSummaryResponse,
+  TaskCenterTaskDto
+} from "../../../../../packages/contracts/src/index.js";
 
 export const mockDashboard: ConsoleDashboardResponse = {
   tasks: [
@@ -39,6 +48,20 @@ export const mockDashboard: ConsoleDashboardResponse = {
   ]
 };
 
+const mockTasks: TaskCenterTaskDto[] = mockDashboard.tasks.map((task) => ({
+  id: task.id,
+  projectId: task.projectId,
+  userId: "user-demo",
+  goal: task.goal,
+  status: task.status,
+  createdAt: task.updatedAt,
+  updatedAt: task.updatedAt,
+  traceCount: task.traceCount,
+  pendingApprovalCount: task.pendingApprovalCount,
+  releaseGateStatus: "blocked",
+  costUsd: 1.2
+}));
+
 export function createMockApiClient(): ApiClient {
   return {
     async getHealth(): Promise<HealthResponse> {
@@ -49,6 +72,48 @@ export function createMockApiClient(): ApiClient {
     },
     async getConsoleDashboard(): Promise<ConsoleDashboardResponse> {
       return mockDashboard;
+    },
+    async listTasks(query: ListTasksQuery = {}): Promise<ListTasksResponse> {
+      return {
+        tasks: mockTasks,
+        total: mockTasks.length,
+        filters: {
+          status: query.status ?? "all",
+          search: query.search ?? "",
+          sort: query.sort ?? "updated_desc"
+        }
+      };
+    },
+    async createTask(input: CreateTaskRequest): Promise<CreateTaskResponse> {
+      return {
+        task: {
+          id: "task-mock-created",
+          projectId: input.projectId,
+          userId: input.userId,
+          goal: input.goal,
+          status: "pending",
+          createdAt: "2026-07-10T00:00:00.000Z",
+          updatedAt: "2026-07-10T00:00:00.000Z",
+          traceCount: 0,
+          pendingApprovalCount: 0,
+          releaseGateStatus: "not_applicable",
+          costUsd: 0
+        }
+      };
+    },
+    async getReleaseSummary(): Promise<ReleaseSummaryResponse> {
+      return {
+        ready: 0,
+        blocked: 1,
+        warning: 0
+      };
+    },
+    async getMetricsSummary(): Promise<MetricsSummaryResponse> {
+      return {
+        activeTasks: 0,
+        waitingApprovalTasks: 1,
+        costTodayUsd: 1.2
+      };
     }
   };
 }
