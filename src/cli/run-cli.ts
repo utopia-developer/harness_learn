@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 
 import { EchoModelClient } from "../model/echo-model.js";
+import {
+  OpenAICompatibleModelClient,
+  type FetchLike
+} from "../model/openai-compatible-model.js";
+import type { ModelClient } from "../model/types.js";
 import { runAgent } from "../runtime/agent-loop.js";
 import { createBuiltinTools } from "../tools/builtin-tools.js";
 import { createToolRegistry } from "../tools/registry.js";
@@ -8,6 +13,8 @@ import { createToolRegistry } from "../tools/registry.js";
 export type RunCliInput = {
   args: string[];
   cwd: string;
+  env?: NodeJS.ProcessEnv;
+  fetch?: FetchLike;
   write: (line: string) => void;
 };
 
@@ -18,7 +25,7 @@ export async function runCli(input: RunCliInput): Promise<number> {
     return 1;
   }
 
-  const model = new EchoModelClient();
+  const model = createCliModel(input);
   const tools = createToolRegistry({
     tools: createBuiltinTools({ workspaceRoot: input.cwd })
   });
@@ -35,4 +42,18 @@ export async function runCli(input: RunCliInput): Promise<number> {
   }
 
   return 0;
+}
+
+function createCliModel(input: RunCliInput): ModelClient {
+  const env = input.env ?? process.env;
+  if (env.HARNESS_MODEL_PROVIDER === "openai-compatible") {
+    return new OpenAICompatibleModelClient({
+      model: env.HARNESS_MODEL_NAME ?? "gpt-5-mini",
+      baseUrl: env.HARNESS_MODEL_BASE_URL,
+      apiKey: env.HARNESS_MODEL_API_KEY,
+      fetch: input.fetch
+    });
+  }
+
+  return new EchoModelClient();
 }
