@@ -23,7 +23,7 @@ test("api server lists pending approvals with risk explanation and suggestions",
   assert.equal(body.approvals.length, 2);
   assert.equal(body.approvals[0].status, "pending");
   assert.equal(body.approvals[0].risk.level, "high");
-  assert.match(body.approvals[0].risk.explanation, /command/i);
+  assert.match(body.approvals[0].risk.explanation, /Shell 命令/);
   assert.equal(body.approvals[0].suggestions[0].status, "pending");
 });
 
@@ -64,7 +64,7 @@ test("api server requires explicit confirmation before approving high risk appro
   assert.equal(response.statusCode, 400);
   assert.deepEqual(response.body, {
     error: "confirmation_required",
-    message: "High risk approval requires explicit confirmation"
+    message: "高风险审批需要显式确认"
   });
 });
 
@@ -95,8 +95,8 @@ test("api server applies a policy suggestion", async () => {
   assert.deepEqual(response.body, {
     suggestion: {
       id: "suggestion-allow-npm-test",
-      title: "Allow npm test for project-harness",
-      description: "Allow repeated npm test commands after manual approval.",
+      title: "允许在 project-harness 中执行 npm test",
+      description: "人工审批后允许重复执行 npm test 命令。",
       status: "applied"
     }
   });

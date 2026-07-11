@@ -53,19 +53,19 @@ export function createTaskCenterViewModel(
   return {
     health: {
       activeTasks: createMetricCard({
-        label: "Active",
+        label: "活跃任务",
         value: input.metricsSummary.activeTasks
       }),
       waitingApprovalTasks: createMetricCard({
-        label: "Waiting approval",
+        label: "待审批",
         value: input.metricsSummary.waitingApprovalTasks
       }),
       releaseGates: createMetricCard({
-        label: "Release gates",
-        value: `${input.releaseSummary.blocked} blocked`
+        label: "Release Gate",
+        value: `${input.releaseSummary.blocked} 个阻塞`
       }),
       costToday: createMetricCard({
-        label: "Cost today",
+        label: "今日成本",
         value: `$${input.metricsSummary.costTodayUsd.toFixed(2)}`
       })
     },
@@ -81,13 +81,13 @@ export function getTaskStatusPresentation(status: TaskStatus): {
   tone: StatusTone;
 } {
   const presentations: Record<TaskStatus, { label: string; tone: StatusTone }> = {
-    pending: { label: "Pending", tone: "pending" },
-    planning: { label: "Planning", tone: "planning" },
-    running: { label: "Running", tone: "running" },
-    waiting_approval: { label: "Waiting approval", tone: "waitingApproval" },
-    completed: { label: "Completed", tone: "completed" },
-    failed: { label: "Failed", tone: "failed" },
-    cancelled: { label: "Cancelled", tone: "cancelled" }
+    pending: { label: "待处理", tone: "pending" },
+    planning: { label: "规划中", tone: "planning" },
+    running: { label: "运行中", tone: "running" },
+    waiting_approval: { label: "待审批", tone: "waitingApproval" },
+    completed: { label: "已完成", tone: "completed" },
+    failed: { label: "失败", tone: "failed" },
+    cancelled: { label: "已取消", tone: "cancelled" }
   };
   return presentations[status];
 }
@@ -116,13 +116,13 @@ function createTaskRowViewModel(task: TaskCenterTaskDto): TaskCenterRowViewModel
 
 function releaseGateLabel(status: TaskCenterTaskDto["releaseGateStatus"]): string {
   if (status === "ready") {
-    return "Ready";
+    return "就绪";
   }
   if (status === "blocked") {
-    return "Blocked";
+    return "阻塞";
   }
   if (status === "warning") {
-    return "Warning";
+    return "预警";
   }
-  return "N/A";
+  return "不适用";
 }

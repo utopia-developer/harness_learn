@@ -71,8 +71,8 @@ test("runEvalGate fails when replay output or tool sequence changes", async () =
 
   assert.equal(result.passed, false);
   assert.deepEqual(result.results[0].failures, [
-    "Output changed",
-    "Tool sequence changed"
+    "输出发生变化",
+    "Tool 调用顺序发生变化"
   ]);
 });
 

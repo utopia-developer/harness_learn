@@ -47,7 +47,7 @@ test("run detail view model exposes timeline, selected event and failure module"
 
   const viewModel = createRunDetailViewModel(trace, "trace-failed-demo:2");
 
-  assert.equal(viewModel.header.status.label, "Failed");
+  assert.equal(viewModel.header.status.label, "失败");
   assert.equal(viewModel.failure?.module, "tool");
   assert.equal(viewModel.timeline[0].kind, "tool");
   assert.equal(viewModel.timeline[1].hasOutputRef, true);

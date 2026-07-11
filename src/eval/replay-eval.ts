@@ -58,10 +58,10 @@ export async function runEvalGate(input: {
     const actual = await input.runner(replayCase);
     const failures: string[] = [];
     if (actual.output !== replayCase.expectedOutput) {
-      failures.push("Output changed");
+      failures.push("输出发生变化");
     }
     if (!sameSequence(actual.tools, replayCase.expectedTools)) {
-      failures.push("Tool sequence changed");
+      failures.push("Tool 调用顺序发生变化");
     }
     results.push({
       caseId: replayCase.id,

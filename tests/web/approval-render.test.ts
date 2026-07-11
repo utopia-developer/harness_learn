@@ -44,13 +44,14 @@ test("approvals page renders queue, detail, risk and policy suggestions", () => 
     approvalQueue
   });
 
-  assert.match(html, /Approval Queue/);
+  assert.match(html, /审批队列/);
   assert.match(html, /run_command/);
-  assert.match(html, /High risk/);
+  assert.match(html, /高风险/);
   assert.match(html, /Command execution is risky/);
   assert.match(html, /npm test/);
   assert.match(html, /name="reason"/);
   assert.match(html, /name="confirmedRisk"/);
+  assert.match(html, /确认执行高风险审批/);
   assert.match(html, /required/);
   assert.match(html, /approval-run-command\/approve/);
   assert.match(html, /approval-run-command\/deny/);

@@ -49,7 +49,7 @@ function evaluateReplayGate(evalGate: EvalGateResult): ReleaseGateCheck {
     return {
       name: "eval",
       passed: true,
-      detail: "Replay eval gate passed"
+      detail: "Replay Eval Gate 已通过"
     };
   }
 
@@ -72,7 +72,7 @@ function evaluateCostGate(
     return {
       name: "cost",
       passed: true,
-      detail: "No cost budget configured"
+      detail: "未配置成本预算"
     };
   }
 
@@ -80,14 +80,14 @@ function evaluateCostGate(
     return {
       name: "cost",
       passed: true,
-      detail: `Cost ${costSummary.totalCostUsd} within budget ${thresholds.maxCostUsd}`
+      detail: `成本 ${costSummary.totalCostUsd}，未超过预算 ${thresholds.maxCostUsd}`
     };
   }
 
   return {
     name: "cost",
     passed: false,
-    detail: `Cost ${costSummary.totalCostUsd} exceeds budget ${thresholds.maxCostUsd}`
+    detail: `成本 ${costSummary.totalCostUsd}，超过预算 ${thresholds.maxCostUsd}`
   };
 }
 
@@ -101,14 +101,14 @@ function evaluateQualityGate(
   const minAverageQualityScore = thresholds?.minAverageQualityScore;
 
   if (minQualityRuns !== undefined && qualityTrend.totalRuns < minQualityRuns) {
-    failures.push(`Quality runs ${qualityTrend.totalRuns} below required ${minQualityRuns}`);
+    failures.push(`质量运行次数 ${qualityTrend.totalRuns}，低于要求 ${minQualityRuns}`);
   }
   if (
     minQualityPassRate !== undefined &&
     qualityTrend.passRate < minQualityPassRate
   ) {
     failures.push(
-      `Pass rate ${qualityTrend.passRate} below required ${minQualityPassRate}`
+      `通过率 ${qualityTrend.passRate}，低于要求 ${minQualityPassRate}`
     );
   }
   if (
@@ -116,13 +116,13 @@ function evaluateQualityGate(
     qualityTrend.averageScore < minAverageQualityScore
   ) {
     failures.push(
-      `Average score ${qualityTrend.averageScore} below required ${minAverageQualityScore}`
+      `平均分 ${qualityTrend.averageScore}，低于要求 ${minAverageQualityScore}`
     );
   }
 
   return {
     name: "quality",
     passed: failures.length === 0,
-    detail: failures.length === 0 ? "Quality thresholds passed" : failures.join("; ")
+    detail: failures.length === 0 ? "质量阈值已通过" : failures.join("; ")
   };
 }

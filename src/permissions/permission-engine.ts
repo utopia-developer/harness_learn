@@ -30,14 +30,14 @@ export function decideToolPermission(input: DecideToolPermissionInput): Permissi
   if (input.mode === "accept_edits" && input.tool.name === "write_file") {
     return {
       decision: "allow",
-      reason: "accept_edits mode allows file edits"
+      reason: "accept_edits 模式允许文件编辑"
     };
   }
 
   if (input.tool.permission === "ask") {
     return {
       decision: "ask",
-      reason: `Tool ${input.tool.name} requires approval`
+      reason: `Tool ${input.tool.name} 需要审批`
     };
   }
 

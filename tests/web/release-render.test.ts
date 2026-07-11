@@ -17,13 +17,13 @@ test("release readiness page renders list, checks, blockers and evidence actions
     }
   });
 
-  assert.match(html, /Release Readiness/);
+  assert.match(html, /发布就绪/);
   assert.match(html, /Harness Console Dogfood/);
   assert.match(html, /Runtime Baseline/);
-  assert.match(html, /Blocked/);
+  assert.match(html, /阻塞/);
   assert.match(html, /Replay Eval/);
-  assert.match(html, /case-console-approval: Output changed/);
-  assert.match(html, /2 audit events/);
+  assert.match(html, /case-console-approval: 输出发生变化/);
+  assert.match(html, /2 条审计事件/);
   assert.match(html, /trace-f3-demo/);
   assert.match(html, /release-console-dogfood\/audit\.jsonl/);
   assert.match(html, /data-release-action="run-gate"/);
@@ -56,22 +56,22 @@ function releaseReadiness(): ReleaseReadinessResponse {
       status: "blocked",
       generatedAt: "2026-07-10T00:02:00.000Z"
     },
-    summary: "Release release-console-dogfood is blocked for project project-harness",
+    summary: "release-console-dogfood 在 project-harness 项目中仍有阻塞项",
     checks: [
       {
         name: "eval",
         label: "Replay Eval",
         passed: false,
-        detail: "case-console-approval: Output changed"
+        detail: "case-console-approval: 输出发生变化"
       },
       {
         name: "cost",
-        label: "Cost Budget",
+        label: "成本预算",
         passed: true,
-        detail: "Cost 2.1 within budget 5"
+        detail: "成本 2.1，未超过预算 5"
       }
     ],
-    blockers: ["eval: case-console-approval: Output changed"],
+    blockers: ["eval: case-console-approval: 输出发生变化"],
     evidence: {
       auditEventCount: 2,
       auditJsonlHref: "/api/v1/releases/release-console-dogfood/audit.jsonl",

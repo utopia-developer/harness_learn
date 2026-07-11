@@ -69,12 +69,12 @@ export function getApprovalRiskPresentation(
   level: ApprovalRiskLevel
 ): ApprovalRiskPresentation {
   if (level === "high") {
-    return { label: "High risk", tone: "danger" };
+    return { label: "高风险", tone: "danger" };
   }
   if (level === "medium") {
-    return { label: "Medium risk", tone: "warning" };
+    return { label: "中风险", tone: "warning" };
   }
-  return { label: "Low risk", tone: "success" };
+  return { label: "低风险", tone: "success" };
 }
 
 function toApprovalDetail(approval: ApprovalDto): ApprovalDetailViewModel {
@@ -85,12 +85,12 @@ function toApprovalDetail(approval: ApprovalDto): ApprovalDetailViewModel {
       ...getApprovalRiskPresentation(approval.risk.level)
     },
     inputJson: JSON.stringify(approval.input, null, 2),
-    approveAction: createButton({ label: "Approve", variant: "primary" }),
-    denyAction: createButton({ label: "Deny", variant: "danger" }),
+    approveAction: createButton({ label: "通过", variant: "primary" }),
+    denyAction: createButton({ label: "拒绝", variant: "danger" }),
     suggestions: approval.suggestions.map((suggestion) => ({
       ...suggestion,
       applyAction: createButton({
-        label: "Apply rule",
+        label: "应用规则",
         variant: suggestion.status === "applied" ? "secondary" : "primary",
         disabled: suggestion.status === "applied"
       })

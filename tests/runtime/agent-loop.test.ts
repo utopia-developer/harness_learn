@@ -238,7 +238,7 @@ test("runAgent requests approval for ask tools and records approved decisions", 
       approvalHandler: async (request) => {
         assert.equal(request.callId, "call-1");
         assert.equal(request.tool, "write_file");
-        assert.match(request.reason, /requires approval/i);
+        assert.match(request.reason, /需要审批/);
         return { approved: true, reason: "approved in test" };
       },
       userMessage: "Use write_file",

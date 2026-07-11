@@ -19,16 +19,16 @@ test("metrics page renders cost attribution, quality trend and runtime health", 
     }
   });
 
-  assert.match(html, /Metrics/);
+  assert.match(html, /指标分析/);
   assert.match(html, /\$4\.25/);
   assert.match(html, /gpt-5-mini/);
   assert.match(html, /run_command/);
   assert.match(html, /code-review/);
-  assert.match(html, /Quality trend/);
+  assert.match(html, /质量趋势/);
   assert.match(html, /nightly-regression/);
-  assert.match(html, /Runtime health/);
+  assert.match(html, /运行健康/);
   assert.match(html, /90s/);
-  assert.match(html, /Completed/);
+  assert.match(html, /已完成/);
 });
 
 function cost(): MetricsCostResponse {

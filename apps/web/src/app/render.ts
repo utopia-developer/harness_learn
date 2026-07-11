@@ -534,19 +534,19 @@ function renderRunDetailContent(
 
   return `
     <section class="metrics-grid">
-      <article><span>Run</span><strong>${escapeHtml(viewModel.header.runId)}</strong></article>
-      <article><span>Status</span><strong>${escapeHtml(viewModel.header.status.label)}</strong></article>
-      <article><span>Events</span><strong>${viewModel.header.eventCount}</strong></article>
+      <article><span>运行</span><strong>${escapeHtml(viewModel.header.runId)}</strong></article>
+      <article><span>状态</span><strong>${escapeHtml(viewModel.header.status.label)}</strong></article>
+      <article><span>事件</span><strong>${viewModel.header.eventCount}</strong></article>
     </section>
     ${viewModel.failure ? `
       <section class="panel failure-panel" role="alert">
-        <h2>Failure module</h2>
+        <h2>失败模块</h2>
         <p><strong>${escapeHtml(viewModel.failure.module)}</strong> · ${escapeHtml(viewModel.failure.message)}</p>
       </section>
     ` : ""}
     <section class="run-detail-grid">
       <div class="panel">
-        <h2>Trace Timeline</h2>
+        <h2>Trace 时间线</h2>
         <ol class="timeline">
           ${viewModel.timeline.map((event) => `
             <li class="timeline-item timeline-${escapeHtml(event.severity)}${event.selected ? " is-selected" : ""}">
@@ -563,24 +563,24 @@ function renderRunDetailContent(
           `).join("")}
         </ol>
       </div>
-      <aside class="panel event-detail" aria-label="Event Detail Panel">
-        <h2>Event Detail Panel</h2>
+      <aside class="panel event-detail" aria-label="事件详情">
+        <h2>事件详情</h2>
         ${viewModel.selectedEvent ? `
           <dl>
-            <dt>Type</dt>
+            <dt>类型</dt>
             <dd>${escapeHtml(viewModel.selectedEvent.type)}</dd>
-            <dt>Summary</dt>
+            <dt>摘要</dt>
             <dd>${escapeHtml(viewModel.selectedEvent.summary)}</dd>
             ${viewModel.selectedEvent.tool ? `
-              <dt>Tool</dt>
+              <dt>工具</dt>
               <dd>${escapeHtml(viewModel.selectedEvent.tool)}</dd>
             ` : ""}
             ${viewModel.selectedEvent.inputJson ? `
-              <dt>Input</dt>
+              <dt>输入</dt>
               <dd><pre><code>${escapeHtml(viewModel.selectedEvent.inputJson)}</code></pre></dd>
             ` : ""}
             ${viewModel.selectedEvent.outputRefHref ? `
-              <dt>Output ref</dt>
+              <dt>输出引用</dt>
               <dd><a href="${viewModel.selectedEvent.outputRefHref}">${escapeHtml(viewModel.selectedEvent.outputRef ?? "")}</a></dd>
             ` : ""}
           </dl>
@@ -679,13 +679,13 @@ function renderApprovalQueueContent(approvalQueue: ApprovalQueueResponse): strin
 
   return `
     <section class="metrics-grid">
-      <article><span>Pending approvals</span><strong>${viewModel.totalPending}</strong></article>
-      <article><span>Selected</span><strong>${viewModel.selectedApproval ? "1" : "0"}</strong></article>
-      <article><span>Risk review</span><strong>${viewModel.selectedApproval?.risk.label ?? "None"}</strong></article>
+      <article><span>待审批数</span><strong>${viewModel.totalPending}</strong></article>
+      <article><span>已选中</span><strong>${viewModel.selectedApproval ? "1" : "0"}</strong></article>
+      <article><span>风险复核</span><strong>${viewModel.selectedApproval?.risk.label ?? "无"}</strong></article>
     </section>
     <section class="approval-layout">
       <div class="panel">
-        <h2>Approval Queue</h2>
+        <h2>审批队列</h2>
         ${viewModel.empty ? "<p>暂无待审批项</p>" : `
           <ul class="approval-list">
             ${viewModel.items.map((item) => `
@@ -712,11 +712,11 @@ function renderApprovalQueueContent(approvalQueue: ApprovalQueueResponse): strin
             ).join("")}</ul>
           </section>
           <dl>
-            <dt>Tool</dt>
+            <dt>工具</dt>
             <dd>${escapeHtml(viewModel.selectedApproval.tool)}</dd>
-            <dt>Reason</dt>
+            <dt>原因</dt>
             <dd>${escapeHtml(viewModel.selectedApproval.reason)}</dd>
-            <dt>Input</dt>
+            <dt>输入</dt>
             <dd><pre><code>${escapeHtml(viewModel.selectedApproval.inputJson)}</code></pre></dd>
           </dl>
           <div class="approval-actions">
@@ -728,7 +728,7 @@ function renderApprovalQueueContent(approvalQueue: ApprovalQueueResponse): strin
               ${viewModel.selectedApproval.risk.level === "high" ? `
                 <label class="confirm-option">
                   <input type="checkbox" name="confirmedRisk" value="yes" required />
-                  Confirm high risk approval
+                  确认执行高风险审批
                 </label>
               ` : ""}
               <button type="submit">${escapeHtml(viewModel.selectedApproval.approveAction.label)}</button>
@@ -766,13 +766,13 @@ function renderReleaseReadinessContent(
 
   return `
     <section class="metrics-grid">
-      <article><span>Releases</span><strong>${viewModel.summary.totalReleases}</strong></article>
-      <article><span>Ready</span><strong>${viewModel.summary.readyCount}</strong></article>
-      <article><span>Blocked</span><strong>${viewModel.summary.blockedCount}</strong></article>
+      <article><span>发布</span><strong>${viewModel.summary.totalReleases}</strong></article>
+      <article><span>就绪</span><strong>${viewModel.summary.readyCount}</strong></article>
+      <article><span>阻塞</span><strong>${viewModel.summary.blockedCount}</strong></article>
     </section>
     <section class="release-layout">
       <div class="panel">
-        <h2>Release Readiness</h2>
+        <h2>发布就绪</h2>
         <ul class="release-list">
           ${viewModel.releases.map((release) => `
             <li class="release-list-item${release.selected ? " is-selected" : ""}">
@@ -794,18 +794,18 @@ function renderReleaseReadinessContent(
           <span class="badge badge-${escapeHtml(viewModel.selected.status.tone)}">${escapeHtml(viewModel.selected.status.label)}</span>
         </div>
         <dl class="release-meta">
-          <dt>Release</dt>
+          <dt>发布</dt>
           <dd>${escapeHtml(viewModel.selected.releaseId)}</dd>
-          <dt>Project</dt>
+          <dt>项目</dt>
           <dd>${escapeHtml(viewModel.selected.projectId)}</dd>
-          <dt>Version</dt>
+          <dt>版本</dt>
           <dd>${escapeHtml(viewModel.selected.version)}</dd>
         </dl>
         <form method="post" action="${escapeHtml(viewModel.selected.gateAction.action)}" data-release-action="run-gate" data-release-id="${escapeHtml(viewModel.selected.releaseId)}">
           <button type="submit">${escapeHtml(viewModel.selected.gateAction.label)}</button>
         </form>
         <section class="release-checks">
-          <h3>Gate checks</h3>
+          <h3>Gate 检查项</h3>
           ${viewModel.selected.checks.map((check) => `
             <article class="check-row check-${escapeHtml(check.status.tone)}">
               <div>
@@ -817,25 +817,25 @@ function renderReleaseReadinessContent(
           `).join("")}
         </section>
         <section class="blocker-list">
-          <h3>Blocked reasons</h3>
+          <h3>阻塞原因</h3>
           ${viewModel.selected.blockers.length > 0
             ? `<ul>${viewModel.selected.blockers.map((blocker) =>
               `<li>${escapeHtml(blocker)}</li>`
             ).join("")}</ul>`
-            : "<p>No blockers</p>"}
+            : "<p>暂无阻塞项</p>"}
         </section>
         <section class="evidence-table">
-          <h3>Evidence</h3>
+          <h3>证据</h3>
           <table>
-            <caption>Release evidence</caption>
+            <caption>发布证据</caption>
             <tbody>
               <tr>
-                <th scope="row">Audit</th>
+                <th scope="row">审计</th>
                 <td>${escapeHtml(viewModel.selected.evidence.auditEventCountLabel)}</td>
                 <td><a href="${escapeHtml(viewModel.selected.evidence.auditDownloadHref)}">Audit JSONL</a></td>
               </tr>
               <tr>
-                <th scope="row">Traces</th>
+                <th scope="row">Trace</th>
                 <td colspan="2">${viewModel.selected.evidence.traceIds.map(escapeHtml).join(", ")}</td>
               </tr>
             </tbody>
@@ -856,13 +856,13 @@ function renderPolicySettingsContent(
 
   return `
     <section class="metrics-grid">
-      <article><span>Allowed tools</span><strong>${viewModel.tools.filter((tool) => tool.allowed).length}</strong></article>
-      <article><span>Allowed models</span><strong>${viewModel.models.filter((model) => model.allowed).length}</strong></article>
-      <article><span>Project</span><strong>${escapeHtml(viewModel.projectId)}</strong></article>
+      <article><span>允许工具</span><strong>${viewModel.tools.filter((tool) => tool.allowed).length}</strong></article>
+      <article><span>允许模型</span><strong>${viewModel.models.filter((model) => model.allowed).length}</strong></article>
+      <article><span>项目</span><strong>${escapeHtml(viewModel.projectId)}</strong></article>
     </section>
     <section class="settings-layout">
       <div class="panel settings-panel">
-        <h2>Team Policy</h2>
+        <h2>团队策略</h2>
         <p>${escapeHtml(viewModel.projectName)} · ${escapeHtml(viewModel.teamId)}</p>
         ${sessionView.policyReadonlyMessage ? `
           <p id="policy-rbac-note" class="readonly-note">${escapeHtml(sessionView.policyReadonlyMessage)}</p>
@@ -890,14 +890,14 @@ function renderPolicySettingsContent(
               `).join("")}
             </div>
           </section>
-          <button type="submit"${readonlyAttr}>Save policy</button>
+          <button type="submit"${readonlyAttr}>保存策略</button>
         </form>
       </div>
       <aside class="panel settings-panel" aria-label="策略模拟器">
         <h2>策略模拟器</h2>
         <form class="simulate-form" method="post" action="${escapeHtml(viewModel.simulateAction)}" data-policy-action="simulate">
           <label>
-            Tool
+            工具
             <select name="tool">
               ${viewModel.tools.map((tool) =>
                 `<option value="${escapeHtml(tool.name)}">${escapeHtml(tool.name)}</option>`
@@ -905,14 +905,14 @@ function renderPolicySettingsContent(
             </select>
           </label>
           <label>
-            Model
+            模型
             <select name="model">
               ${viewModel.models.map((model) =>
                 `<option value="${escapeHtml(model.name)}">${escapeHtml(model.name)}</option>`
               ).join("")}
             </select>
           </label>
-          <button type="submit">Simulate</button>
+          <button type="submit">模拟策略</button>
         </form>
         ${viewModel.simulation ? `
           <section class="simulation-result">
@@ -938,13 +938,13 @@ function renderPluginsSettingsContent(
 
   return `
     <section class="metrics-grid">
-      <article><span>Plugins</span><strong>${viewModel.plugins.length}</strong></article>
-      <article><span>Enabled</span><strong>${viewModel.plugins.filter((plugin) => plugin.status.label === "Enabled").length}</strong></article>
-      <article><span>Shared skills</span><strong>${viewModel.sharedSkills.length}</strong></article>
+      <article><span>插件</span><strong>${viewModel.plugins.length}</strong></article>
+      <article><span>已启用</span><strong>${viewModel.plugins.filter((plugin) => plugin.status.label === "已启用").length}</strong></article>
+      <article><span>共享 Skill</span><strong>${viewModel.sharedSkills.length}</strong></article>
     </section>
     <section class="settings-layout">
       <div class="panel settings-panel">
-        <h2>Plugin Registry</h2>
+        <h2>插件注册表</h2>
         ${sessionView.pluginReadonlyMessage ? `
           <p class="readonly-note">${escapeHtml(sessionView.pluginReadonlyMessage)}</p>
         ` : ""}
@@ -957,9 +957,9 @@ function renderPluginsSettingsContent(
               </div>
               <span class="badge badge-${escapeHtml(plugin.status.tone)}">${escapeHtml(plugin.status.label)}</span>
               <dl>
-                <dt>Tools</dt>
+                <dt>工具</dt>
                 <dd>${plugin.tools.map(escapeHtml).join(", ")}</dd>
-                <dt>Skills</dt>
+                <dt>Skill</dt>
                 <dd>${plugin.skills.map(escapeHtml).join(", ")}</dd>
               </dl>
               <form method="post" action="${escapeHtml(plugin.primaryAction.action)}" data-plugin-action="${escapeHtml(plugin.primaryAction.actionKind)}" data-plugin-id="${escapeHtml(plugin.id)}">
@@ -969,8 +969,8 @@ function renderPluginsSettingsContent(
           `).join("")}
         </div>
       </div>
-      <aside class="panel settings-panel" aria-label="Team shared skills">
-        <h2>Team shared skills</h2>
+      <aside class="panel settings-panel" aria-label="团队共享 Skill">
+        <h2>团队共享 Skill</h2>
         ${viewModel.sharedSkills.length > 0
           ? `<ul class="skill-list">${viewModel.sharedSkills.map((skill) =>
             `<li>${escapeHtml(skill)}</li>`
@@ -1001,26 +1001,26 @@ function renderMetricsContent(metrics: NonNullable<RenderAppHtmlInput["metrics"]
 
   return `
     <section class="metrics-grid">
-      <article><span>Total cost</span><strong>${escapeHtml(viewModel.summary.totalCost)}</strong></article>
-      <article><span>Eval pass rate</span><strong>${escapeHtml(viewModel.summary.passRate)}</strong></article>
-      <article><span>Run success</span><strong>${escapeHtml(viewModel.summary.successRate)}</strong></article>
+      <article><span>总成本</span><strong>${escapeHtml(viewModel.summary.totalCost)}</strong></article>
+      <article><span>Eval 通过率</span><strong>${escapeHtml(viewModel.summary.passRate)}</strong></article>
+      <article><span>运行成功率</span><strong>${escapeHtml(viewModel.summary.successRate)}</strong></article>
     </section>
     <section class="metrics-layout">
       <div class="panel metrics-panel">
-        <h2>Metrics</h2>
-        <p>${escapeHtml(viewModel.projectId)} · Average iterations ${escapeHtml(viewModel.summary.averageIterations)}</p>
+        <h2>指标分析</h2>
+        <p>${escapeHtml(viewModel.projectId)} · 平均迭代 ${escapeHtml(viewModel.summary.averageIterations)}</p>
         <section class="cost-breakdown-grid">
-          ${renderCostBreakdown("Model cost", viewModel.cost.modelCost, viewModel.cost.byModel)}
-          ${renderCostBreakdown("Tool cost", viewModel.cost.toolCost, viewModel.cost.byTool)}
-          ${renderCostBreakdown("Skill attribution", viewModel.summary.totalCost, viewModel.cost.bySkill)}
+          ${renderCostBreakdown("模型成本", viewModel.cost.modelCost, viewModel.cost.byModel)}
+          ${renderCostBreakdown("工具成本", viewModel.cost.toolCost, viewModel.cost.byTool)}
+          ${renderCostBreakdown("Skill 归因", viewModel.summary.totalCost, viewModel.cost.bySkill)}
         </section>
       </div>
-      <aside class="panel metrics-panel" aria-label="Runtime health">
-        <h2>Runtime health</h2>
+      <aside class="panel metrics-panel" aria-label="运行健康">
+        <h2>运行健康</h2>
         <dl class="metrics-kv">
-          <dt>Total runs</dt>
+          <dt>运行总数</dt>
           <dd>${viewModel.runtime.totalRuns}</dd>
-          <dt>Average approval wait</dt>
+          <dt>平均审批等待</dt>
           <dd>${escapeHtml(viewModel.runtime.averageApprovalWait)}</dd>
         </dl>
         <div class="runtime-status-grid">
@@ -1034,14 +1034,14 @@ function renderMetricsContent(metrics: NonNullable<RenderAppHtmlInput["metrics"]
       </aside>
     </section>
     <section class="panel metrics-panel">
-      <h2>Quality trend</h2>
-      <p>${viewModel.quality.totalRuns} runs · Average score ${escapeHtml(viewModel.quality.averageScore)}</p>
+      <h2>质量趋势</h2>
+      <p>${viewModel.quality.totalRuns} 次运行 · 平均分 ${escapeHtml(viewModel.quality.averageScore)}</p>
       <ol class="quality-list">
         ${viewModel.quality.points.map((point) => `
           <li class="quality-item quality-${escapeHtml(point.tone)}">
             <div>
               <strong>${escapeHtml(point.suiteId)}</strong>
-              <span>${escapeHtml(point.timestamp)} · score ${escapeHtml(point.score)}</span>
+              <span>${escapeHtml(point.timestamp)} · 得分 ${escapeHtml(point.score)}</span>
             </div>
             <span class="badge badge-${escapeHtml(point.tone)}">${escapeHtml(point.result)}</span>
           </li>
@@ -1077,11 +1077,11 @@ function renderCostBreakdown(
 function renderStatusOptions(current: TaskStatus | "all"): string {
   const options: Array<{ value: TaskStatus | "all"; label: string }> = [
     { value: "all", label: "全部" },
-    { value: "pending", label: "Pending" },
-    { value: "running", label: "Running" },
-    { value: "waiting_approval", label: "Waiting approval" },
-    { value: "completed", label: "Completed" },
-    { value: "failed", label: "Failed" }
+    { value: "pending", label: "待处理" },
+    { value: "running", label: "运行中" },
+    { value: "waiting_approval", label: "待审批" },
+    { value: "completed", label: "已完成" },
+    { value: "failed", label: "失败" }
   ];
   return options.map((option) =>
     `<option value="${option.value}"${option.value === current ? " selected" : ""}>${option.label}</option>`

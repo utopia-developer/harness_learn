@@ -20,9 +20,9 @@ test("session view model exposes role label and permission affordances", () => {
   assert.equal(viewModel.userLabel, "Harness Viewer");
   assert.deepEqual(viewModel.roleBadge, {
     kind: "badge",
-    label: "Viewer",
+    label: "观察者",
     tone: "neutral"
   });
   assert.equal(viewModel.canEditPolicy, false);
-  assert.equal(viewModel.policyReadonlyMessage, "Admin role required to modify project policy.");
+  assert.equal(viewModel.policyReadonlyMessage, "需要管理员权限才能修改项目策略。");
 });

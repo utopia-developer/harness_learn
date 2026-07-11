@@ -196,7 +196,7 @@ export async function handleApiRequest(
 
   if (request.method === "PUT" && projectPolicyMatch) {
     if (!session.permissions.canEditPolicy) {
-      return forbiddenResponse("Admin role required to update project policy");
+      return forbiddenResponse("需要管理员权限才能更新项目策略");
     }
     const policy = teamGovernanceStore.updateProjectPolicy(
       decodeURIComponent(projectPolicyMatch[1]),
@@ -230,7 +230,7 @@ export async function handleApiRequest(
   const pluginActionMatch = pathname.match(/^\/api\/v1\/teams\/([^/]+)\/plugins\/([^/]+)\/(install|enable|disable)$/);
   if (request.method === "POST" && pluginActionMatch) {
     if (!session.permissions.canManagePlugins) {
-      return forbiddenResponse("Admin role required to manage team plugins");
+      return forbiddenResponse("需要管理员权限才能管理团队插件");
     }
     const teamId = decodeURIComponent(pluginActionMatch[1]);
     const pluginId = decodeURIComponent(pluginActionMatch[2]);
@@ -259,13 +259,13 @@ export async function handleApiRequest(
     if (!approval) {
       return jsonResponse(404, {
         error: "not_found",
-        message: "Approval not found"
+        message: "未找到审批项"
       });
     }
     if (approval.risk.level === "high" && input.confirmedRisk !== true) {
       return jsonResponse(400, {
         error: "confirmation_required",
-        message: "High risk approval requires explicit confirmation"
+        message: "高风险审批需要显式确认"
       });
     }
     const result = approvalQueueStore.approve(
@@ -274,7 +274,7 @@ export async function handleApiRequest(
     );
     return result ? jsonResponse(200, result) : jsonResponse(404, {
       error: "not_found",
-      message: "Approval not found"
+      message: "未找到审批项"
     });
   }
 
@@ -286,7 +286,7 @@ export async function handleApiRequest(
     );
     return result ? jsonResponse(200, result) : jsonResponse(404, {
       error: "not_found",
-      message: "Approval not found"
+      message: "未找到审批项"
     });
   }
 

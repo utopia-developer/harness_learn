@@ -24,7 +24,7 @@ test("metrics view model exposes cost, quality and runtime summaries", () => {
   assert.equal(viewModel.cost.bySkill[0].label, "code-review");
   assert.equal(viewModel.quality.points[2].tone, "danger");
   assert.equal(viewModel.runtime.averageApprovalWait, "90s");
-  assert.equal(viewModel.runtime.byStatus[0].label, "Completed");
+  assert.equal(viewModel.runtime.byStatus[0].label, "已完成");
 });
 
 function cost(): MetricsCostResponse {

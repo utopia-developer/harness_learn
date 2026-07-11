@@ -44,25 +44,25 @@ test("approval queue view model exposes risk, details and action labels", () => 
   const viewModel = createApprovalQueueViewModel(response, "approval-run-command");
 
   assert.equal(viewModel.totalPending, 1);
-  assert.equal(viewModel.items[0].risk.label, "High risk");
+  assert.equal(viewModel.items[0].risk.label, "高风险");
   assert.equal(viewModel.items[0].risk.tone, "danger");
   assert.equal(viewModel.selectedApproval?.inputJson, "{\n  \"cmd\": \"npm test\"\n}");
-  assert.equal(viewModel.selectedApproval?.approveAction.label, "Approve");
-  assert.equal(viewModel.selectedApproval?.denyAction.label, "Deny");
-  assert.equal(viewModel.selectedApproval?.suggestions[0].applyAction.label, "Apply rule");
+  assert.equal(viewModel.selectedApproval?.approveAction.label, "通过");
+  assert.equal(viewModel.selectedApproval?.denyAction.label, "拒绝");
+  assert.equal(viewModel.selectedApproval?.suggestions[0].applyAction.label, "应用规则");
 });
 
 test("approval risk presentation maps high risk to strong visual warning", () => {
   assert.deepEqual(getApprovalRiskPresentation("high"), {
-    label: "High risk",
+    label: "高风险",
     tone: "danger"
   });
   assert.deepEqual(getApprovalRiskPresentation("medium"), {
-    label: "Medium risk",
+    label: "中风险",
     tone: "warning"
   });
   assert.deepEqual(getApprovalRiskPresentation("low"), {
-    label: "Low risk",
+    label: "低风险",
     tone: "success"
   });
 });

@@ -45,7 +45,7 @@ test("task center view model combines tasks with health summaries", () => {
 
   assert.equal(viewModel.health.activeTasks.value, "1");
   assert.equal(viewModel.health.waitingApprovalTasks.value, "1");
-  assert.equal(viewModel.health.releaseGates.value, "1 blocked");
+  assert.equal(viewModel.health.releaseGates.value, "1 个阻塞");
   assert.equal(viewModel.health.costToday.value, "$2.42");
   assert.equal(viewModel.rows[0].detailHref, "/tasks/task-running-demo/runs/latest");
   assert.equal(viewModel.filters.status, "running");
@@ -53,23 +53,23 @@ test("task center view model combines tasks with health summaries", () => {
 
 test("task status presentation clearly distinguishes key statuses", () => {
   assert.deepEqual(getTaskStatusPresentation("pending"), {
-    label: "Pending",
+    label: "待处理",
     tone: "pending"
   });
   assert.deepEqual(getTaskStatusPresentation("running"), {
-    label: "Running",
+    label: "运行中",
     tone: "running"
   });
   assert.deepEqual(getTaskStatusPresentation("waiting_approval"), {
-    label: "Waiting approval",
+    label: "待审批",
     tone: "waitingApproval"
   });
   assert.deepEqual(getTaskStatusPresentation("completed"), {
-    label: "Completed",
+    label: "已完成",
     tone: "completed"
   });
   assert.deepEqual(getTaskStatusPresentation("failed"), {
-    label: "Failed",
+    label: "失败",
     tone: "failed"
   });
 });

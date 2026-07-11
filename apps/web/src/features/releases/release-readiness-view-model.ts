@@ -41,7 +41,7 @@ export type ReleaseReadinessViewModel = {
       label: string;
       detail: string;
       status: {
-        label: "Passed" | "Failed";
+        label: "通过" | "失败";
         tone: "success" | "danger";
       };
     }>;
@@ -90,12 +90,12 @@ export function createReleaseReadinessViewModel(input: {
       checks: input.readiness.checks.map(toCheckViewModel),
       blockers: [...input.readiness.blockers],
       evidence: {
-        auditEventCountLabel: `${input.readiness.evidence.auditEventCount} audit events`,
+        auditEventCountLabel: `${input.readiness.evidence.auditEventCount} 条审计事件`,
         auditDownloadHref: input.readiness.evidence.auditJsonlHref,
         traceIds: [...input.readiness.evidence.traceIds]
       },
       gateAction: {
-        label: "Run gate",
+        label: "运行 Gate",
         action: `/api/v1/releases/${input.readiness.release.id}/gate`
       }
     }
@@ -107,13 +107,13 @@ export function getReleaseStatusPresentation(
 ): ReleaseStatusPresentation {
   if (status === "ready") {
     return {
-      label: "Ready",
+      label: "就绪",
       tone: "success"
     };
   }
 
   return {
-    label: "Blocked",
+    label: "阻塞",
     tone: "danger"
   };
 }
@@ -124,7 +124,7 @@ function toCheckViewModel(check: ReleaseGateCheckDto): ReleaseReadinessViewModel
     label: check.label,
     detail: check.detail,
     status: {
-      label: check.passed ? "Passed" : "Failed",
+      label: check.passed ? "通过" : "失败",
       tone: check.passed ? "success" : "danger"
     }
   };

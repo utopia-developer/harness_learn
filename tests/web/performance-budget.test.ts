@@ -17,7 +17,7 @@ test("run trace page stays within the large-trace render budget", () => {
   });
   const elapsedMs = performance.now() - startedAt;
 
-  assert.equal(html.includes("Trace Timeline"), true);
+  assert.equal(html.includes("Trace 时间线"), true);
   assert.equal(html.includes("Trace event 299"), true);
   assert.ok(elapsedMs < 500, `expected render under 500ms, got ${elapsedMs}`);
   assert.ok(html.length < 250_000, `expected html under 250KB, got ${html.length}`);

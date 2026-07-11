@@ -68,9 +68,9 @@ function buildSummary(
   status: ReleaseReadinessStatus
 ): string {
   if (status === "ready") {
-    return `Release ${releaseId} is ready for project ${projectId}`;
+    return `${releaseId} 在 ${projectId} 项目中已满足发布条件`;
   }
-  return `Release ${releaseId} is blocked for project ${projectId}`;
+  return `${releaseId} 在 ${projectId} 项目中仍有阻塞项`;
 }
 
 function toJsonl(events: AuditEvent[]): string {

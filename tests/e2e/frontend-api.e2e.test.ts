@@ -78,7 +78,7 @@ test("frontend can create a task and render it in the task center page", async (
   });
 
   assert.match(html, /端到端 F2 创建任务/);
-  assert.match(html, /Pending/);
+  assert.match(html, /待处理/);
   assert.match(html, /name="goal"/);
 });
 
@@ -123,7 +123,7 @@ test("frontend renders run detail from trace api with output ref and replay entr
   assert.match(stream, /event: trace.event/);
   assert.equal(output.content, "exitCode: 1\nstderr: test failed\n");
   assert.equal(replayCase.expectedTools[0], "read_file");
-  assert.match(html, /Trace Timeline/);
+  assert.match(html, /Trace 时间线/);
   assert.match(html, /tool-output%3A%2F%2Frun-failed-demo%2Ftool-call-failed/);
 });
 
@@ -161,7 +161,7 @@ test("frontend renders approval queue and updates it after approval actions", as
   const suggestion = await client.applyPolicySuggestion("suggestion-allow-npm-test");
   const after = await client.listApprovals({ status: "pending" });
 
-  assert.match(beforeHtml, /High risk/);
+  assert.match(beforeHtml, /高风险/);
   assert.equal(approved.runEffect.status, "continues");
   assert.equal(denied.runEffect.status, "failed");
   assert.equal(suggestion.suggestion.status, "applied");
@@ -209,8 +209,8 @@ test("frontend renders release readiness and exports audit evidence", async () =
   assert.equal(readiness.release.status, "blocked");
   assert.equal(gate.status, "blocked");
   assert.match(auditJsonl, /release.gate.started/);
-  assert.match(html, /Release Readiness/);
-  assert.match(html, /case-console-approval: Output changed/);
+  assert.match(html, /发布就绪/);
+  assert.match(html, /case-console-approval: 输出发生变化/);
   assert.match(html, /release-console-dogfood\/audit\.jsonl/);
 });
 
@@ -264,9 +264,9 @@ test("frontend renders governance settings and updates policy and plugins", asyn
   assert.equal(updatedPolicy.policy.allowedTools.includes("run_command"), true);
   assert.equal(enabled.plugin.enabled, true);
   assert.equal(plugins.sharedSkills.includes("deep-research"), true);
-  assert.match(policyHtml, /Team Policy/);
+  assert.match(policyHtml, /团队策略/);
   assert.match(policyHtml, /run_command/);
-  assert.match(pluginsHtml, /Plugin Registry/);
+  assert.match(pluginsHtml, /插件注册表/);
   assert.match(pluginsHtml, /deep-research/);
 });
 
@@ -313,8 +313,8 @@ test("frontend e2e denies project policy updates for viewer sessions", async () 
   });
 
   assert.equal(session.permissions.canEditPolicy, false);
-  assert.match(html, /Admin role required to modify project policy/);
-  assert.match(html, /<button type="submit" disabled>Save policy<\/button>/);
+  assert.match(html, /需要管理员权限才能修改项目策略/);
+  assert.match(html, /<button type="submit" disabled>保存策略<\/button>/);
 });
 
 test("frontend renders metrics dashboard from cost, quality and runtime APIs", async () => {
@@ -353,8 +353,8 @@ test("frontend renders metrics dashboard from cost, quality and runtime APIs", a
   assert.equal(cost.bySkill[0].name, "code-review");
   assert.equal(quality.passRate, 0.75);
   assert.equal(runtime.successRate, 0.8);
-  assert.match(html, /Metrics/);
+  assert.match(html, /指标分析/);
   assert.match(html, /gpt-5-mini/);
   assert.match(html, /nightly-regression/);
-  assert.match(html, /Runtime health/);
+  assert.match(html, /运行健康/);
 });

@@ -84,7 +84,7 @@ test("runReleaseGate returns explicit failed checks for blocked releases", () =>
         {
           caseId: "case-1",
           passed: false,
-          failures: ["Output changed", "Tool sequence changed"]
+          failures: ["输出发生变化", "Tool 调用顺序发生变化"]
         }
       ]
     },
@@ -108,9 +108,9 @@ test("runReleaseGate returns explicit failed checks for blocked releases", () =>
 
   assert.equal(result.passed, false);
   assert.deepEqual(result.checks.map((check) => check.name), ["eval", "cost", "quality"]);
-  assert.match(result.checks[0].detail, /case-1: Output changed, Tool sequence changed/);
-  assert.match(result.checks[1].detail, /cost 12.5 exceeds budget 5/i);
-  assert.match(result.checks[2].detail, /quality runs 1 below required 2/i);
-  assert.match(result.checks[2].detail, /pass rate 0 below required 0.9/i);
-  assert.match(result.checks[2].detail, /average score 0.4 below required 0.9/i);
+  assert.match(result.checks[0].detail, /case-1: 输出发生变化, Tool 调用顺序发生变化/);
+  assert.match(result.checks[1].detail, /成本 12.5，超过预算 5/);
+  assert.match(result.checks[2].detail, /质量运行次数 1，低于要求 2/);
+  assert.match(result.checks[2].detail, /通过率 0，低于要求 0.9/);
+  assert.match(result.checks[2].detail, /平均分 0.4，低于要求 0.9/);
 });

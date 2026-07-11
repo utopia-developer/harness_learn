@@ -63,7 +63,7 @@ export function createReleaseReadinessStore(seeds = createDefaultReleaseSeeds())
       return {
         releaseId,
         status: readiness.release.status,
-        message: `Release ${releaseId} gate evaluated as ${readiness.release.status}.`,
+        message: `${releaseId} 的 Gate 评估结果为${readiness.release.status === "ready" ? "就绪" : "阻塞"}。`,
         readiness
       };
     },
@@ -115,8 +115,8 @@ function buildReadinessReport(release: ReleaseSeed) {
 function toCheckDto(check: { name: ReleaseGateCheckDto["name"]; passed: boolean; detail: string }): ReleaseGateCheckDto {
   const labels: Record<ReleaseGateCheckDto["name"], string> = {
     eval: "Replay Eval",
-    cost: "Cost Budget",
-    quality: "Quality Trend"
+    cost: "成本预算",
+    quality: "质量趋势"
   };
 
   return {
@@ -167,7 +167,7 @@ function createBlockedConsoleRelease(): ReleaseSeed {
           {
             caseId: "case-console-approval",
             passed: false,
-            failures: ["Output changed"]
+            failures: ["输出发生变化"]
           }
         ]
       },

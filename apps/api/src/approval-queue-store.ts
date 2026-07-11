@@ -72,8 +72,8 @@ function decide(
       runId: approval.runId,
       status: status === "approved" ? "continues" : "failed",
       message: status === "approved"
-        ? "Approval accepted; run may continue."
-        : "Approval denied; run is marked failed."
+        ? "审批已通过，运行可以继续。"
+        : "审批已拒绝，运行已标记为失败。"
     }
   };
 }
@@ -88,20 +88,20 @@ function createSeedApprovals(): ApprovalDto[] {
       callId: "tool-call-f0",
       tool: "run_command",
       mode: "default",
-      reason: "Tool run_command requires approval",
+      reason: "Tool run_command 需要审批",
       requestedAt: "2026-07-10T00:00:00.000Z",
       status: "pending",
       input: { cmd: "npm test" },
       risk: {
         level: "high",
-        explanation: "Shell command execution can mutate files, run network calls, or leak secrets.",
-        factors: ["destructive tool", "command execution", "workspace access"]
+        explanation: "Shell 命令可能修改文件、触发网络调用或泄露敏感信息。",
+        factors: ["高风险工具", "命令执行", "工作区访问"]
       },
       suggestions: [
         suggestion(
           "suggestion-allow-npm-test",
-          "Allow npm test for project-harness",
-          "Allow repeated npm test commands after manual approval."
+          "允许在 project-harness 中执行 npm test",
+          "人工审批后允许重复执行 npm test 命令。"
         )
       ]
     },
@@ -113,20 +113,20 @@ function createSeedApprovals(): ApprovalDto[] {
       callId: "tool-call-write",
       tool: "write_file",
       mode: "default",
-      reason: "File write requires review",
+      reason: "文件写入需要复核",
       requestedAt: "2026-07-10T00:01:00.000Z",
       status: "pending",
       input: { path: "README.md", content: "updated" },
       risk: {
         level: "medium",
-        explanation: "File writes can change repository state and should be reviewed.",
-        factors: ["file mutation", "repository state"]
+        explanation: "文件写入会改变仓库状态，需要先完成复核。",
+        factors: ["文件变更", "仓库状态"]
       },
       suggestions: [
         suggestion(
           "suggestion-allow-readme-write",
-          "Allow README updates",
-          "Allow low-risk README edits in project-harness."
+          "允许 README 更新",
+          "允许在 project-harness 中执行低风险 README 编辑。"
         )
       ]
     }

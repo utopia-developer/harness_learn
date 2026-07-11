@@ -27,7 +27,7 @@ export type MetricsViewModel = {
       suiteId: string;
       timestamp: string;
       score: string;
-      result: "Passed" | "Failed";
+      result: "通过" | "失败";
       tone: "success" | "danger";
     }>;
   };
@@ -35,7 +35,7 @@ export type MetricsViewModel = {
     totalRuns: number;
     averageApprovalWait: string;
     byStatus: Array<{
-      label: "Completed" | "Failed" | "Cancelled";
+      label: "已完成" | "失败" | "已取消";
       value: number;
       tone: "success" | "danger" | "pending";
     }>;
@@ -75,7 +75,7 @@ export function createMetricsViewModel(input: {
         suiteId: point.suiteId,
         timestamp: point.timestamp,
         score: point.score.toFixed(2),
-        result: point.passed ? "Passed" : "Failed",
+        result: point.passed ? "通过" : "失败",
         tone: point.passed ? "success" : "danger"
       }))
     },
@@ -84,17 +84,17 @@ export function createMetricsViewModel(input: {
       averageApprovalWait: formatDuration(input.runtime.averageApprovalWaitMs),
       byStatus: [
         {
-          label: "Completed",
+          label: "已完成",
           value: input.runtime.byStatus.completed,
           tone: "success"
         },
         {
-          label: "Failed",
+          label: "失败",
           value: input.runtime.byStatus.failed,
           tone: "danger"
         },
         {
-          label: "Cancelled",
+          label: "已取消",
           value: input.runtime.byStatus.cancelled,
           tone: "pending"
         }

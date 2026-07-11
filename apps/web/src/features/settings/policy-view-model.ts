@@ -27,7 +27,7 @@ export type PolicyViewModel = {
 
 export type PolicyDecisionViewModel = {
   name: string;
-  label: "Allowed" | "Denied";
+  label: "允许" | "拒绝";
   tone: "success" | "danger";
   reason: string;
 };
@@ -62,7 +62,7 @@ export function createPolicyViewModel(input: {
 function toDecision(decision: PolicySimulationDecisionDto): PolicyDecisionViewModel {
   return {
     name: decision.name,
-    label: decision.allowed ? "Allowed" : "Denied",
+    label: decision.allowed ? "允许" : "拒绝",
     tone: decision.allowed ? "success" : "danger",
     reason: decision.reason
   };

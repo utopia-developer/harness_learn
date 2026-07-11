@@ -55,7 +55,7 @@ test("api server reruns a release gate and returns the refreshed readiness", asy
   assert.equal(response.statusCode, 200);
   assert.equal(body.releaseId, "release-console-dogfood");
   assert.equal(body.status, "blocked");
-  assert.match(body.message, /gate evaluated/i);
+  assert.match(body.message, /Gate 评估结果为阻塞/);
   assert.ok(body.readiness.blockers.length > 0);
 });
 

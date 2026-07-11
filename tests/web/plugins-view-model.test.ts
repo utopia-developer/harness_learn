@@ -10,12 +10,12 @@ test("plugins view model exposes install state, enable actions and shared skills
   assert.equal(viewModel.teamId, "team-platform");
   assert.deepEqual(viewModel.sharedSkills, ["code-review"]);
   assert.equal(viewModel.plugins.length, 3);
-  assert.equal(viewModel.plugins[0].status.label, "Enabled");
-  assert.equal(viewModel.plugins[0].primaryAction.label, "Disable");
-  assert.equal(viewModel.plugins[1].status.label, "Installed");
-  assert.equal(viewModel.plugins[1].primaryAction.label, "Enable");
-  assert.equal(viewModel.plugins[2].status.label, "Available");
-  assert.equal(viewModel.plugins[2].primaryAction.label, "Install");
+  assert.equal(viewModel.plugins[0].status.label, "已启用");
+  assert.equal(viewModel.plugins[0].primaryAction.label, "停用");
+  assert.equal(viewModel.plugins[1].status.label, "已安装");
+  assert.equal(viewModel.plugins[1].primaryAction.label, "启用");
+  assert.equal(viewModel.plugins[2].status.label, "可安装");
+  assert.equal(viewModel.plugins[2].primaryAction.label, "安装");
   assert.equal(
     viewModel.plugins[2].primaryAction.action,
     "/api/v1/teams/team-platform/plugins/research-pack/install"

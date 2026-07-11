@@ -22,22 +22,22 @@ export function createSessionViewModel(session: SessionResponse): SessionViewMod
     canApproveDangerous: session.permissions.canApproveDangerous,
     canManagePlugins: session.permissions.canManagePlugins,
     ...(!session.permissions.canEditPolicy
-      ? { policyReadonlyMessage: "Admin role required to modify project policy." }
+      ? { policyReadonlyMessage: "需要管理员权限才能修改项目策略。" }
       : {}),
     ...(!session.permissions.canManagePlugins
-      ? { pluginReadonlyMessage: "Admin role required to manage team plugins." }
+      ? { pluginReadonlyMessage: "需要管理员权限才能管理团队插件。" }
       : {})
   };
 }
 
 function roleLabel(role: UserRole): string {
   if (role === "admin") {
-    return "Admin";
+    return "管理员";
   }
   if (role === "developer") {
-    return "Developer";
+    return "开发者";
   }
-  return "Viewer";
+  return "观察者";
 }
 
 function roleTone(role: UserRole): "neutral" | "warning" | "success" {

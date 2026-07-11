@@ -24,7 +24,7 @@ test("policy view model exposes project allowlists and simulation decisions", ()
   assert.equal(viewModel.updateAction, "/api/v1/projects/project-harness/policy");
   assert.equal(viewModel.simulateAction, "/api/v1/projects/project-harness/policy/simulate");
   assert.equal(viewModel.simulation?.tool.tone, "danger");
-  assert.match(viewModel.simulation?.tool.reason ?? "", /not allowed/i);
+  assert.match(viewModel.simulation?.tool.reason ?? "", /不在项目策略允许范围内/);
 });
 
 function projectPolicy(): ProjectPolicyResponse {
@@ -49,12 +49,12 @@ function simulation(): PolicySimulationResponse {
     tool: {
       name: "run_command",
       allowed: false,
-      reason: "Tool run_command is not allowed by project policy."
+      reason: "Tool run_command 不在项目策略允许范围内。"
     },
     model: {
       name: "gpt-5",
       allowed: false,
-      reason: "Model gpt-5 is not allowed by project policy."
+      reason: "Model gpt-5 不在项目策略允许范围内。"
     }
   };
 }

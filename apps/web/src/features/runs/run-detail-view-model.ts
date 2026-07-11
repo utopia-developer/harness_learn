@@ -96,15 +96,15 @@ function statusPresentation(status: RunTraceStatus): {
   tone: ComponentTone;
 } {
   if (status === "completed") {
-    return { label: "Completed", tone: "completed" };
+    return { label: "已完成", tone: "completed" };
   }
   if (status === "failed") {
-    return { label: "Failed", tone: "failed" };
+    return { label: "失败", tone: "failed" };
   }
   if (status === "cancelled") {
-    return { label: "Cancelled", tone: "cancelled" };
+    return { label: "已取消", tone: "cancelled" };
   }
-  return { label: "Running", tone: "running" };
+  return { label: "运行中", tone: "running" };
 }
 
 function severityTone(severity: RunTraceEventDto["severity"]): ComponentTone {

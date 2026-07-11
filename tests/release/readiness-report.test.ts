@@ -12,17 +12,17 @@ const passedGate: ReleaseGateResult = {
     {
       name: "eval",
       passed: true,
-      detail: "Replay eval gate passed"
+      detail: "Replay Eval Gate 已通过"
     },
     {
       name: "cost",
       passed: true,
-      detail: "Cost 4.25 within budget 5"
+      detail: "成本 4.25，未超过预算 5"
     },
     {
       name: "quality",
       passed: true,
-      detail: "Quality thresholds passed"
+      detail: "质量阈值已通过"
     }
   ]
 };
@@ -54,7 +54,7 @@ test("createReleaseReadinessReport marks a passing gate as ready with project ev
   });
 
   assert.equal(report.status, "ready");
-  assert.equal(report.summary, "Release release-2026-07-10 is ready for project project-1");
+  assert.equal(report.summary, "release-2026-07-10 在 project-1 项目中已满足发布条件");
   assert.equal(report.evidence.auditEventCount, 1);
   assert.match(report.evidence.auditJsonl, /release.gate.started/);
   assert.doesNotMatch(report.evidence.auditJsonl, /other-release/);
@@ -75,12 +75,12 @@ test("createReleaseReadinessReport marks failed gates as blocked with reasons", 
         {
           name: "cost",
           passed: false,
-          detail: "Cost 12.5 exceeds budget 5"
+          detail: "成本 12.5，超过预算 5"
         },
         {
           name: "quality",
           passed: false,
-          detail: "Pass rate 0 below required 0.9"
+          detail: "通过率 0，低于要求 0.9"
         }
       ]
     },
@@ -90,8 +90,8 @@ test("createReleaseReadinessReport marks failed gates as blocked with reasons", 
 
   assert.equal(report.status, "blocked");
   assert.deepEqual(report.blockers, [
-    "cost: Cost 12.5 exceeds budget 5",
-    "quality: Pass rate 0 below required 0.9"
+    "cost: 成本 12.5，超过预算 5",
+    "quality: 通过率 0，低于要求 0.9"
   ]);
   assert.equal(report.evidence.auditEventCount, 0);
 });

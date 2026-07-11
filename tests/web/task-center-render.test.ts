@@ -50,7 +50,7 @@ test("tasks page renders task center controls, health summary and task rows", ()
   assert.match(html, /name="search"/);
   assert.match(html, /name="sort"/);
   assert.match(html, /运行 Task Center 数据刷新/);
-  assert.match(html, /Running/);
+  assert.match(html, /运行中/);
   assert.match(html, /href="\/tasks\/task-running-demo\/runs\/latest"/);
   assert.match(html, /\$2.42/);
 });

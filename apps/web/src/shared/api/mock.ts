@@ -95,20 +95,20 @@ const mockApproval: ApprovalDto = {
   callId: "tool-call-f0",
   tool: "run_command",
   mode: "default",
-  reason: "Tool requires approval",
+  reason: "工具调用需要审批",
   requestedAt: "2026-07-10T00:00:00.000Z",
   status: "pending",
   input: { cmd: "npm test" },
   risk: {
     level: "high",
-    explanation: "Command execution is risky",
-    factors: ["command"]
+    explanation: "命令执行会访问本地环境，需要人工复核。",
+    factors: ["命令执行"]
   },
   suggestions: [
     {
       id: "suggestion-allow-npm-test",
-      title: "Allow npm test",
-      description: "Allow repeated npm test commands.",
+      title: "允许 npm test",
+      description: "允许重复执行 npm test 命令。",
       status: "pending"
     }
   ]
@@ -123,30 +123,30 @@ const mockReleaseReadiness: ReleaseReadinessResponse = {
     status: "blocked",
     generatedAt: "2026-07-10T00:02:00.000Z"
   },
-  summary: "Release release-console-dogfood is blocked for project project-harness",
+  summary: "release-console-dogfood 在 project-harness 项目中仍有阻塞项",
   checks: [
     {
       name: "eval",
       label: "Replay Eval",
       passed: false,
-      detail: "case-console-approval: Output changed"
+      detail: "case-console-approval: 输出发生变化"
     },
     {
       name: "cost",
-      label: "Cost Budget",
+      label: "成本预算",
       passed: true,
-      detail: "Cost 2.1 within budget 5"
+      detail: "成本 2.1，未超过预算 5"
     },
     {
       name: "quality",
-      label: "Quality Trend",
+      label: "质量趋势",
       passed: false,
-      detail: "Quality runs 1 below required 2"
+      detail: "质量运行次数 1，低于要求 2"
     }
   ],
   blockers: [
-    "eval: case-console-approval: Output changed",
-    "quality: Quality runs 1 below required 2"
+    "eval: case-console-approval: 输出发生变化",
+    "quality: 质量运行次数 1，低于要求 2"
   ],
   evidence: {
     auditEventCount: 2,
@@ -362,7 +362,7 @@ export function createMockApiClient(): ApiClient {
       return {
         releaseId: mockReleaseReadiness.release.id,
         status: mockReleaseReadiness.release.status,
-        message: "Release release-console-dogfood gate evaluated as blocked.",
+        message: "release-console-dogfood 的 Gate 评估结果为阻塞。",
         readiness: mockReleaseReadiness
       };
     },
@@ -398,15 +398,15 @@ export function createMockApiClient(): ApiClient {
           name: tool,
           allowed: toolAllowed,
           reason: toolAllowed
-            ? `Tool ${tool} is allowed by project policy.`
-            : `Tool ${tool} is not allowed by project policy.`
+            ? `Tool ${tool} 在项目策略允许范围内。`
+            : `Tool ${tool} 不在项目策略允许范围内。`
         },
         model: {
           name: model,
           allowed: modelAllowed,
           reason: modelAllowed
-            ? `Model ${model} is allowed by project policy.`
-            : `Model ${model} is not allowed by project policy.`
+            ? `Model ${model} 在项目策略允许范围内。`
+            : `Model ${model} 不在项目策略允许范围内。`
         }
       };
     },
@@ -559,8 +559,8 @@ function approvalAction(
       runId: mockApproval.runId,
       status: runStatus,
       message: runStatus === "continues"
-        ? "Approval accepted; run may continue."
-        : "Approval denied; run is marked failed."
+        ? "审批已通过，运行可以继续。"
+        : "审批已拒绝，运行已标记为失败。"
     }
   };
 }

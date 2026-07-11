@@ -51,8 +51,8 @@ test("run detail page renders timeline, event detail, output ref and replay entr
     }
   });
 
-  assert.match(html, /Trace Timeline/);
-  assert.match(html, /Failure module/);
+  assert.match(html, /Trace 时间线/);
+  assert.match(html, /失败模块/);
   assert.match(html, /tool/);
   assert.match(html, /Tool requested/);
   assert.match(html, /npm test/);
