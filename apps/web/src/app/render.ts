@@ -1113,7 +1113,11 @@ function parseRunPath(pathname: string): { taskId: string; runId: string } | und
 
 function parseReleasePath(pathname: string): string | undefined {
   const match = pathname.match(/^\/releases\/([^/]+)$/);
-  return match ? decodeURIComponent(match[1]) : undefined;
+  if (!match) {
+    return undefined;
+  }
+  const releaseId = decodeURIComponent(match[1]);
+  return releaseId === "current" ? undefined : releaseId;
 }
 
 function stateLabel(state: RenderState): string {

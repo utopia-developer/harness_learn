@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { renderAppHtml } from "../../apps/web/src/app/render.js";
+import { renderApp, renderAppHtml } from "../../apps/web/src/app/render.js";
+import type { ApiClient } from "../../apps/web/src/shared/api/client.js";
 import type {
   ListReleasesResponse,
   ReleaseReadinessResponse
@@ -27,6 +28,26 @@ test("release readiness page renders list, checks, blockers and evidence actions
   assert.match(html, /trace-f3-demo/);
   assert.match(html, /release-console-dogfood\/audit\.jsonl/);
   assert.match(html, /data-release-action="run-gate"/);
+});
+
+test("release navigation current route loads the latest release id", async () => {
+  const requestedReleaseIds: string[] = [];
+  const root = createFakeRoot("/releases/current");
+  const client = {
+    async listReleases() {
+      return releaseList();
+    },
+    async getReleaseReadiness(releaseId: string) {
+      requestedReleaseIds.push(releaseId);
+      return releaseReadiness();
+    }
+  } as Partial<ApiClient> as ApiClient;
+
+  await renderApp(root, client);
+
+  assert.deepEqual(requestedReleaseIds, ["release-console-dogfood"]);
+  assert.match(root.innerHTML, /发布就绪/);
+  assert.doesNotMatch(root.innerHTML, /无法加载页面数据/);
 });
 
 function releaseList(): ListReleasesResponse {
@@ -78,4 +99,16 @@ function releaseReadiness(): ReleaseReadinessResponse {
       traceIds: ["trace-f3-demo", "trace-f4-approval"]
     }
   };
+}
+
+function createFakeRoot(pathname: string): HTMLElement & { innerHTML: string } {
+  return {
+    innerHTML: "",
+    ownerDocument: {
+      location: {
+        pathname
+      }
+    },
+    querySelectorAll: () => []
+  } as unknown as HTMLElement & { innerHTML: string };
 }

@@ -29,3 +29,18 @@
 - 直接 `curl` 页面路由只能拿到客户端渲染壳 HTML，无法验证最终 DOM 文案；因此用编译产物扫描、自动化 render/E2E 测试和 API 抽样共同验证。
 - 首轮只改前端模板后，发现后端 release gate 与 approval seed 仍会把英文业务说明流入页面；已将这些源头文案同步中文化，避免页面刷新或交互后重新出现英文主体内容。
 - 机器可读字段仍保留英文，例如 `status`、`error`、`actionKind`、路由和工具/模型标识，避免破坏 API 契约。
+
+## 后续修复：发布 Tab 404
+
+用户继续验证时发现点击发布 Tab 会显示 404。根因是导航链接使用 `/releases/current` 表示“当前发布”，但前端渲染逻辑将 `current` 当作真实 release id 请求 `/api/v1/releases/current/readiness`，后端没有该 release，因此返回 404。
+
+修复方式：
+
+- 在前端 release 路由解析中将 `current` 视为占位符，回落到 release 列表第一条真实 release id。
+- 增加回归测试，验证 `/releases/current` 会请求 `release-console-dogfood`，不会请求 `current`。
+- 保留后端 `/api/v1/releases/current/readiness` 返回 404 的语义，因为 `current` 不是 API 契约中的真实 id。
+
+验证：
+
+- `npm run test:web`：44 项通过，0 失败。
+- `npm test`：176 项通过，0 失败。
